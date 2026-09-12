@@ -36,7 +36,9 @@ const BUILDING_PALETTES := {
 
 var visual_style_version := "v1.3-generic-1"
 var tunnel_view_only := false
+var underpass_path_index := -1
 var active_land_bridge_id := ""
+var map_overview := false
 
 var features: Array = []
 var projection: Dictionary = {}
@@ -124,6 +126,13 @@ func is_mapped_water(world_position: Vector2) -> bool:
 		if _point_in_water_area(world_position, area_value):
 			return true
 	return false
+
+
+func set_map_overview(enabled: bool) -> void:
+	if map_overview == enabled:
+		return
+	map_overview = enabled
+	queue_redraw()
 
 
 func set_active_land_bridge(bridge_id: String) -> void:
@@ -263,18 +272,20 @@ func _draw() -> void:
 	if tunnel_view_only:
 		_draw_tunnel_view()
 		return
+	if underpass_path_index >= 0 and underpass_path_index < road_paths.size():
+		var path: Dictionary = road_paths[underpass_path_index]
+		var width := float(path.half_width) * 2.0
+		draw_polyline(path.points, ROAD_EDGE, width + 6.0, true)
+		draw_polyline(path.points, FOOTPATH if path.walkway else ROAD, width, true)
+		if path.markings: _draw_road_markings(path.points, path.oneway)
+		return
 	draw_rect(world_bounds.grow(80.0), GRASS, true)
 	for area in land_cover.areas:
 		for piece in area.pieces:
 			_draw_polygon_safely(piece, LandCoverScript.colour(area.category))
 	_draw_grass_stalks()
-	# Tunnel routes are drawn first so land, water and buildings correctly cover
-	# their underground portions.
-	for path in road_paths:
-		if not bool(path.tunnel):
-			continue
-		var tunnel_points: PackedVector2Array = path.points
-		draw_polyline(tunnel_points, TUNNEL_ROAD, float(path.half_width) * 2.0, true)
+	# Underground decks belong only to tunnel view; drawing them on top of grass
+	# produces a dark cut through the visible town and apparent gaps in bridges.
 	_draw_water()
 	# Ground roads are painted first. Explicit bridge decks are painted in a
 	# second pass so a valid elevated road remains visible over a lower road.
@@ -321,7 +332,9 @@ func _draw() -> void:
 		var corridor: Dictionary = corridor_value
 		if str(corridor.kind) != "bridge":
 			continue
-		if not bool(corridor.get("over_water", false)) and str(corridor.id) != active_land_bridge_id:
+		# The overview shows the complete mapped network, independent of the
+		# player's current crossing. Gameplay still uses the active bridge layer.
+		if not map_overview and not bool(corridor.get("over_water", false)) and str(corridor.id) != active_land_bridge_id:
 			continue
 		var bridge_points: PackedVector2Array = corridor.points
 		var bridge_width := float(corridor.half_width) * 2.0
@@ -329,6 +342,38 @@ func _draw() -> void:
 		draw_polyline(bridge_points, ROAD, bridge_width, true)
 		_draw_road_markings(bridge_points, false)
 	_draw_crossing_portals()
+
+
+func set_underpass_view(path_index: int) -> void:
+	if underpass_path_index == path_index: return
+	underpass_path_index = path_index
+	queue_redraw()
+
+
+func underpass_at(position: Vector2, driving: bool = false) -> int:
+	# Only a lower mapped road inside an upper bridge deck selects this view.
+	# Being near a bridge, or standing on grass next to its approach, is not enough.
+	for corridor in crossing_corridors:
+		if corridor.kind != "bridge": continue
+		var points: PackedVector2Array = corridor.points
+		if position.distance_to(points[0]) <= float(corridor.half_width) or position.distance_to(points[points.size()-1]) <= float(corridor.half_width): continue
+		var beneath := false
+		for index in range(points.size()-1):
+			if Geometry2D.get_closest_point_to_segment(position,points[index],points[index+1]).distance_to(position) <= float(corridor.half_width):
+				beneath = true
+				break
+		if not beneath: continue
+		var closest_path := -1
+		var closest_distance := INF
+		for segment in road_segments:
+			if segment.bridge or segment.tunnel or int(segment.layer) >= maxi(1,int(corridor.layer)): continue
+			if driving and road_paths[int(segment.path_index)].walkway: continue
+			var distance := Geometry2D.get_closest_point_to_segment(position,segment.a,segment.b).distance_to(position)
+			if distance <= float(segment.half_width) and distance < closest_distance:
+				closest_distance = distance
+				closest_path = int(segment.path_index)
+		if closest_path >= 0: return closest_path
+	return -1
 
 
 func _draw_tunnel_view() -> void:
@@ -413,6 +458,8 @@ func bridge_road_overlap() -> Dictionary:
 			for road_value in road_segments:
 				var road: Dictionary = road_value
 				if bool(road.get("bridge", false)) or bool(road.get("tunnel", false)):
+					continue
+				if road_paths[int(road.path_index)].walkway:
 					continue
 				var intersection = Geometry2D.segment_intersects_segment(points[index], points[index + 1], road.a, road.b)
 				if intersection == null:
@@ -591,6 +638,7 @@ func _build_roads() -> void:
 		var bridge := _tag_enabled(tags.get("bridge", ""))
 		var tunnel := _tag_enabled(tags.get("tunnel", ""))
 		road_paths.append({
+			"path_id": str(feature.get("id", "")),
 			"points": points,
 			"half_width": half_width,
 			"walkway": walkway,
@@ -609,6 +657,8 @@ func _build_roads() -> void:
 		for index in range(points.size() - 1):
 			var segment := {
 				"segment_id": road_segments.size(),
+				"path_index": road_paths.size() - 1,
+				"path_id": str(feature.get("id", "")),
 				"a": points[index],
 				"b": points[index + 1],
 				"half_width": half_width,
@@ -621,6 +671,9 @@ func _build_roads() -> void:
 			if not street_name.is_empty():
 				_index_named_road_segment(segment)
 	road_paths.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.half_width) < float(b.half_width))
+	var sorted_path_indices: Dictionary = {}
+	for index in road_paths.size(): sorted_path_indices[road_paths[index].path_id] = index
+	for segment in road_segments: segment.path_index = sorted_path_indices[segment.path_id]
 	_build_street_labels(label_candidates)
 
 

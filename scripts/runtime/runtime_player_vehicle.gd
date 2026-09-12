@@ -16,6 +16,7 @@ var coast_deceleration := 30.0
 var brake_deceleration := 140.0
 var steering_rate := 1.9
 var ground_check: Callable
+var crossing_travel = preload("res://scripts/crossings/crossing_travel.gd").new()
 
 
 func configure(driving_settings: Dictionary) -> void:
@@ -34,6 +35,7 @@ func _ready() -> void:
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 	shape = RectangleShape2D.new()
 	shape.size = Vector2(17.0, 40.0) * art_scale
+	crossing_travel.half_size = shape.size * 0.5
 	var hit := CollisionShape2D.new()
 	hit.shape = shape
 	add_child(hit)
@@ -60,6 +62,10 @@ func _physics_process(delta: float) -> void:
 			rotation = next_angle
 	velocity = Vector2.UP.rotated(rotation) * speed
 	var previous_position := global_position
+	if not crossing_travel.can_move(previous_position, previous_position + velocity * delta, rotation):
+		speed = 0.0
+		velocity = Vector2.ZERO
+		return
 	var collision := move_and_collide(velocity * delta)
 	if collision:
 		speed = 0.0
@@ -68,6 +74,7 @@ func _physics_process(delta: float) -> void:
 		global_position = previous_position
 		speed = 0.0
 		velocity = Vector2.ZERO
+	crossing_travel.commit_move(previous_position, global_position)
 
 
 func set_ground_check(check: Callable) -> void:
@@ -118,6 +125,10 @@ func _draw() -> void:
 
 
 func _can_rotate_to(angle: float) -> bool:
+	var rotation_steps := maxi(1, ceili(absf(angle - rotation) / 0.08))
+	for step in range(1, rotation_steps + 1):
+		if not crossing_travel.can_move(global_position, global_position, lerpf(rotation, angle, float(step) / rotation_steps)):
+			return false
 	var query := PhysicsShapeQueryParameters2D.new()
 	query.shape = shape
 	query.transform = Transform2D(angle, global_position)

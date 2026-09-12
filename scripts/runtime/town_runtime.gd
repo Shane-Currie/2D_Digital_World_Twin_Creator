@@ -90,6 +90,8 @@ func _ready() -> void:
 	wagon.set_ground_check(renderer.is_ground_traversable)
 	wagon.z_index = 4
 	add_child(wagon)
+	player.crossing_travel.corridors = renderer.crossing_corridors
+	wagon.crossing_travel.corridors = renderer.crossing_corridors
 	_add_start_marker()
 
 	population = PopulationScript.new()
@@ -121,22 +123,27 @@ func _process(delta: float) -> void:
 	notice_time = maxf(0.0, notice_time - delta)
 	var focus: CharacterBody2D = wagon if occupied else player
 	_update_land_bridge_state(focus.position, focus.velocity)
-	var player_in_tunnel: bool = renderer.crossing_kind_at(player.position) == "tunnel"
-	var wagon_in_tunnel: bool = renderer.crossing_kind_at(wagon.position) == "tunnel"
-	var focus_crossing_kind: String = renderer.crossing_kind_at(focus.position)
-	var on_bridge: bool = not active_land_bridge_id.is_empty() or (focus_crossing_kind == "bridge" and renderer.is_mapped_water(focus.position))
+	var player_in_tunnel: bool = player.crossing_travel.active.get("kind", "") == "tunnel"
+	var wagon_in_tunnel: bool = wagon.crossing_travel.active.get("kind", "") == "tunnel"
+	var on_bridge: bool = focus.crossing_travel.active.get("kind", "") == "bridge"
 	var tunnel_view := not overview and (wagon_in_tunnel if occupied else player_in_tunnel)
-	tunnel_background.visible = tunnel_view
+	var underpass_index: int = renderer.underpass_at(focus.position, occupied) if not overview and focus.crossing_travel.active.is_empty() else -1
+	var covered_view := tunnel_view or underpass_index >= 0
+	tunnel_background.visible = covered_view
+	tunnel_background.color = Color("#4a4a4a") if underpass_index >= 0 else Color.BLACK
 	renderer.set_tunnel_view(tunnel_view)
-	population.visible = not tunnel_view
-	tracks.visible = not tunnel_view
+	renderer.set_underpass_view(underpass_index)
+	renderer.set_map_overview(overview)
+	population.visible = not covered_view
+	tracks.visible = not covered_view
 	var start_marker := get_node_or_null("StartingLocationMarker") as CanvasItem
 	if start_marker != null:
-		start_marker.visible = not tunnel_view
+		start_marker.visible = not covered_view
 	# Show the controlled road user against black while underground. Surface
 	# actors remain hidden; the M overview still shows the ordinary town map.
 	player.visible = not occupied and (player_in_tunnel if tunnel_view else not player_in_tunnel)
 	wagon.visible = wagon_in_tunnel if tunnel_view else not wagon_in_tunnel
+	if underpass_index >= 0 and not wagon.crossing_travel.active.is_empty(): wagon.visible = false
 	if not overview and not capture_camera_locked:
 		camera.position = focus.position + focus.velocity * 0.35
 		camera.zoom = Vector2.ONE * gameplay_zoom * (driving_zoom_multiplier if occupied else 1.0)
@@ -153,6 +160,8 @@ func _process(delta: float) -> void:
 		status_text = "IN TUNNEL · route continues below the surface"
 	elif on_bridge:
 		status_text = "ON BRIDGE · upper road layer · traffic below stays on its own route"
+	elif underpass_index >= 0:
+		status_text = "UNDER BRIDGE · following the lower road"
 	elif occupied:
 		var speed_kph := roundi(absf(wagon.speed) * 3.6 / float(collision_data.runtime_scale.pixels_per_metre))
 		status_text = "WHITE HOLDEN VZ WAGON · %02d km/h · arrows drive · Space brake · E exit · M map" % speed_kph
@@ -185,25 +194,14 @@ func _process(delta: float) -> void:
 		map_coordinates.text = "Latitude: %.6f°\nLongitude: %.6f°" % [latitude, longitude]
 
 
-func _update_land_bridge_state(focus_position: Vector2, travel_direction: Vector2 = Vector2.ZERO) -> void:
-	const PORTAL_RADIUS := 18.0
-	if active_land_bridge_id.is_empty():
-		var portal: Dictionary = renderer.bridge_portal_at(focus_position, travel_direction, PORTAL_RADIUS)
-		if portal.is_empty():
-			return
-		active_land_bridge_id = str(portal.id)
-		active_bridge_entry = portal.entry
-		active_bridge_exit = portal.exit
-		active_bridge_departed = false
-		renderer.set_active_land_bridge(active_land_bridge_id)
-		population.set_active_land_bridge(active_land_bridge_id)
-		_notice("Entering bridge. You are now on the upper road layer.")
-		return
-	if not active_bridge_departed and focus_position.distance_to(active_bridge_entry) > PORTAL_RADIUS * 1.8:
-		active_bridge_departed = true
-	if active_bridge_departed and (focus_position.distance_to(active_bridge_exit) <= PORTAL_RADIUS or focus_position.distance_to(active_bridge_entry) <= PORTAL_RADIUS):
-		_clear_active_land_bridge()
-		_notice("Bridge exit. Returned to the surface road layer.")
+func _update_land_bridge_state(_focus_position: Vector2, _travel_direction: Vector2 = Vector2.ZERO) -> void:
+	var focus = wagon if occupied else player
+	var crossing: Dictionary = focus.crossing_travel.active
+	var bridge_id := str(crossing.get("id", "")) if crossing.get("kind", "") == "bridge" else ""
+	if active_land_bridge_id == bridge_id: return
+	active_land_bridge_id = bridge_id
+	renderer.set_active_land_bridge(bridge_id)
+	population.set_active_land_bridge(bridge_id)
 
 
 func _clear_active_land_bridge() -> void:
@@ -265,11 +263,14 @@ func _verify_runtime() -> void:
 		var bridge_portal: Dictionary = renderer.bridge_portal_at(bridge_points[0], bridge_direction)
 		assert(not bridge_portal.is_empty())
 		player.position = bridge_portal.entry
+		player.crossing_travel.commit_move(bridge_portal.entry - bridge_direction * 10.0, bridge_portal.entry + bridge_direction * 10.0)
 		_update_land_bridge_state(player.position, bridge_direction)
 		assert(active_land_bridge_id == str(bridge_portal.id), "Entering a bridge endpoint did not select the upper road layer.")
 		player.position = _path_midpoint(bridge_points)
 		_update_land_bridge_state(player.position, bridge_direction)
 		player.position = bridge_portal.exit
+		var exit_direction := bridge_points[bridge_points.size() - 2].direction_to(bridge_portal.exit)
+		player.crossing_travel.commit_move(bridge_portal.exit, bridge_portal.exit + exit_direction * 30.0)
 		_update_land_bridge_state(player.position, bridge_direction)
 		assert(active_land_bridge_id.is_empty(), "Leaving the opposite bridge endpoint did not restore the surface layer.")
 		player.position = bridge_overlap.position
@@ -298,6 +299,7 @@ func _capture_runtime(path_value: String) -> void:
 		wagon.occupied = true
 		player.active = false
 		wagon.position = tunnel_position
+		wagon.crossing_travel.active = tunnel_corridor
 		capture_camera_locked = true
 		camera.position_smoothing_enabled = false
 		if capture_focus == "tunnel":
@@ -314,11 +316,46 @@ func _capture_runtime(path_value: String) -> void:
 		assert(renderer.visible and not renderer.tunnel_view_only and not tunnel_background.visible)
 		_toggle_map()
 		wagon.position = surface_position
+		wagon.crossing_travel.active = {}
 		await get_tree().process_frame
 		await get_tree().process_frame
 		assert(renderer.visible and not renderer.tunnel_view_only and wagon.visible and not tunnel_background.visible)
 		wagon.position = tunnel_position
+		wagon.crossing_travel.active = tunnel_corridor
 		print("TUNNEL PRESENTATION PASSED: entry/exit points, visible wagon and tunnel roads, black surroundings, M overview, surface restoration")
+	elif capture_focus == "underpass":
+		var surface_position: Vector2 = wagon.position
+		var overlap: Dictionary = renderer.bridge_road_overlap()
+		assert(not overlap.is_empty(), "The capture map needs a road under a bridge.")
+		occupied = true
+		wagon.occupied = true
+		player.active = false
+		wagon.crossing_travel.active = {}
+		wagon.position = overlap.position
+		wagon.rotation = overlap.road.a.direction_to(overlap.road.b).angle() + PI/2
+		capture_camera_locked = true
+		camera.position_smoothing_enabled = false
+		camera.position = wagon.position
+		camera.zoom = Vector2.ONE
+		await get_tree().process_frame
+		await get_tree().process_frame
+		assert(wagon.visible and renderer.underpass_path_index >= 0 and not renderer.tunnel_view_only)
+		assert(tunnel_background.visible and tunnel_background.color == Color("#4a4a4a"))
+		var shown_path: Dictionary = renderer.road_paths[renderer.underpass_path_index]
+		assert(shown_path.path_id == overlap.road.path_id, "The grey view selected a different road after sorting")
+		_toggle_map()
+		await get_tree().process_frame
+		await get_tree().process_frame
+		assert(renderer.underpass_path_index == -1 and not tunnel_background.visible)
+		_toggle_map()
+		wagon.position = surface_position
+		await get_tree().process_frame
+		await get_tree().process_frame
+		assert(renderer.underpass_path_index == -1 and not tunnel_background.visible)
+		wagon.position = overlap.position
+		camera.position = wagon.position
+		camera.zoom = Vector2.ONE
+		print("UNDERPASS PRESENTATION PASSED: visible lower road/wagon, grey surroundings, correct road after sorting, no upper-layer activation, M overview and surface restoration")
 	elif capture_focus in ["bridge", "bridge-entry", "bridge-exit"]:
 		var overlap: Dictionary = renderer.bridge_road_overlap()
 		var bridge_corridor: Dictionary = overlap.get("bridge", renderer.longest_crossing_corridor("bridge"))
@@ -328,6 +365,7 @@ func _capture_runtime(path_value: String) -> void:
 		wagon.occupied = true
 		player.active = false
 		active_land_bridge_id = str(bridge_corridor.id)
+		wagon.crossing_travel.active = bridge_corridor
 		active_bridge_entry = bridge_points[0]
 		active_bridge_exit = bridge_points[bridge_points.size() - 1]
 		if capture_focus == "bridge-exit":
@@ -364,6 +402,15 @@ func _capture_runtime(path_value: String) -> void:
 		_fit_overview()
 		_zoom_overview(48.0)
 		camera.position = player.position
+		# Optional geographic focus for reproducing user map-view screenshots.
+		var capture_latitude := _argument_value("--capture-latitude")
+		var capture_longitude := _argument_value("--capture-longitude")
+		if not capture_latitude.is_empty() and not capture_longitude.is_empty():
+			camera.position = ProjectionScript.geographic_to_world(Vector2(float(capture_longitude), float(capture_latitude)), renderer.projection, renderer.pixels_per_metre)
+		var capture_map_zoom := _argument_value("--capture-map-zoom")
+		if not capture_map_zoom.is_empty():
+			overview_zoom = maxf(1.0, float(capture_map_zoom))
+			_apply_overview_zoom()
 	elif capture_focus == "map-fit":
 		overview = true
 		map_buttons.visible = true
@@ -450,11 +497,15 @@ func _toggle_wagon() -> void:
 		wagon.occupied = false
 		wagon.speed = 0.0
 		player.position = exit_spot
+		player.crossing_travel.active = wagon.crossing_travel.active
 		player.active = true
 		player.collision_layer = 2
 		player.show()
 		_notice("On foot. Move beside your wagon and press E to get in again.")
 	elif _near_wagon():
+		if player.crossing_travel.active.get("id", "") != wagon.crossing_travel.active.get("id", ""):
+			_notice("Reach the wagon on the same road level before getting in.")
+			return
 		var ray := PhysicsRayQueryParameters2D.create(player.position, wagon.position, 1)
 		if not get_world_2d().direct_space_state.intersect_ray(ray).is_empty():
 			_notice("Walk around the building or obstacle to reach your wagon.")
@@ -479,6 +530,8 @@ func _safe_exit() -> Vector2:
 	for offset in [Vector2(18.0, -3.0), Vector2(-18.0, -3.0), Vector2(20.0, 10.0), Vector2(-20.0, 10.0)]:
 		var target: Vector2 = wagon.position + offset.rotated(wagon.rotation)
 		if not renderer.world_bounds.has_point(target):
+			continue
+		if not wagon.crossing_travel.active.is_empty() and not player.crossing_travel.contains_pose(wagon.crossing_travel.active, target, 0.0, player.crossing_travel.half_size):
 			continue
 		var query := PhysicsShapeQueryParameters2D.new()
 		var circle := CircleShape2D.new()

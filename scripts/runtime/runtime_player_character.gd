@@ -11,6 +11,7 @@ var controls_enabled := true
 var walk_speed := 42.0
 var art_scale := 1.0
 var ground_check: Callable
+var crossing_travel = preload("res://scripts/crossings/crossing_travel.gd").new()
 
 
 func _ready() -> void:
@@ -20,6 +21,7 @@ func _ready() -> void:
 	var hit := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
 	circle.radius = 4.0 * art_scale
+	crossing_travel.half_size = Vector2.ONE * circle.radius
 	hit.shape = circle
 	add_child(hit)
 
@@ -41,10 +43,15 @@ func _physics_process(delta: float) -> void:
 		facing = direction
 	velocity = direction * walk_speed
 	var previous_position := global_position
+	if not crossing_travel.can_move(previous_position, previous_position + velocity * delta, 0.0):
+		velocity = Vector2.ZERO
+		walking = false
+		return
 	move_and_slide()
 	if ground_check.is_valid() and not _movement_stays_on_ground(previous_position, global_position, 4.0 * art_scale):
 		global_position = previous_position
 		velocity = Vector2.ZERO
+	crossing_travel.commit_move(previous_position, global_position)
 	walking = get_real_velocity().length() > 1.0
 	if walking:
 		animation_time += delta

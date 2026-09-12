@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.1 complete — 2026-09-13
+
+The v1.1 milestone is complete. This release includes the Creator Studio town import/reopen workflow, configurable populations and driving settings, playable town previews, real-world map-centre coordinates, mapped water/land cover, and the final bridge/tunnel corrections below.
+
+- Prevent player cars and walking characters from leaving bridge/tunnel sides; retain safe endpoint entry and exit.
+- Show the controlled actor and road against black in tunnels and grey beneath bridges.
+- Remove underground road stripes from the surface and restore every bridge span in map overview.
+- Focused crossing, rendering and runtime checks passed; the reported map gap was visually checked at its geographic location. Detailed dated results follow.
+
+This closes the v1.1 scope, not the full product roadmap. Advanced editors, the remaining simulation migration, Windows executable export and documented complex crossing/collision limitations remain future work. Extended gameplay/performance testing remains user-led.
+
 ## 2026-09-10 — v1.1 Creator Studio foundation
 
 - Created the first **2D Digital World Twin Creator** Godot project at the user-specified v1.1 location without changing the existing v1.3 game.
@@ -253,3 +264,20 @@
 - The actual The Rocks OSM contains road-over-road bridges and water bridges. Its import/renderer check passed with 130 directed bridge edges and 117 tunnel edges, including independent lower-road geometry, permanent water-bridge display and automatic land-bridge portals.
 - Navigation, environmental-water, Creator UI, traffic-flow and 72-check CLI/content regressions passed. Gold and The Rocks runtime checks passed. Known host log/certificate warnings remain; extended user driving remains the user's test.
 - Actual runtime captures: `tools/tests/output/bridge_entry.png`, `bridge_exit.png`, `tunnel_entry.png` and `tunnel_exit.png`. These generated test outputs are excluded from the public repository but can be reviewed locally.
+
+## 2026-09-13 — Bridge/tunnel side boundaries and grey underpasses
+
+- Walking and player driving now retain an active bridge/tunnel corridor after entering through an endpoint. Reject movement or turning that puts the actor footprint beyond a side; allow forward or reverse departure through either end after the actor fully clears it. Vehicle entry/exit retains the correct crossing state and checks safe placement.
+- Tunnel roads no longer draw across the surface map or cut through bridge artwork. Underground gameplay still shows tunnel roads and the controlled actor against black.
+- Driving or walking on a lower road beneath a bridge shows that road and the controlled actor against grey (`#4a4a4a`). Driving selects vehicle roads rather than pedestrian paths. Upper-bridge travel stays distinct; M overview and leaving the covered area restore the appropriate map presentation.
+- Corrected underpass road lookup after road-width sorting by remapping segments using stable path IDs. The rendered regression asserts the selected lower road identity as well as visibility and restoration.
+- Focused checks passed: `verify_crossing_boundaries.gd` (both corridor types, fast side movement, turning overhang, forward/reverse exits, curved geometry, actual car/walker motion), `verify_crossing_render.gd` (continuous bridge, no surface tunnel stripe, visible underground road with black surroundings), and environmental-water regression. Gold and The Rocks startup/control checks passed with 330 agents and nine collision chunks each. Known sandbox log/certificate-store warnings remain; no script errors occurred in final checks.
+- Visually inspected actual runtime captures: `tools/tests/output/bridge_boundaries_gold.png`, `tunnel_boundaries_rocks.png` and `under_bridge_grey.png`. Grey underpass capture also verifies M overview and surface restoration. Local test outputs are excluded from Git.
+- Restart **Play test** to load these changes; projects already containing crossing data do not need rebuilding. Extended driving/performance, underground building-collision separation, ambiguous starts inside crossings and complex transitions between different corridors remain outside these focused checks. Existing user maps and starts were preserved.
+
+## 2026-09-13 — Restore missing bridge spans in map view
+
+- Fixed a separate cause of missing spans: M overview inherited the gameplay rule that hides inactive land bridges. The overview now draws every mapped bridge corridor, independently of player position or crossing state. Closing M restores gameplay visibility, including the separate grey underpass and black tunnel views.
+- Extended the rendered crossing regression to check multiple inactive land bridges at several points, unchanged player crossing state and restoration after closing the overview. All assertions passed, alongside its existing surface/tunnel overlap checks.
+- Reproduced the reported area in the user's Rocks project near latitude -33.860570, longitude 151.205987 at 15x map zoom. Visually inspected `tools/tests/output/bridge_map_complete_user.png`: the highway lanes continue across the previously missing sections. Added optional geographic capture arguments for repeatable map-view checks; they do not modify saved starts or map data.
+- No script errors in final checks; known host log/certificate-store warnings remain. This was a focused rendering correction, not extended driving/performance testing. Restart **Play test**; no project rebuild is required.

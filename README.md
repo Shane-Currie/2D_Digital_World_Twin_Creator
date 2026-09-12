@@ -3,6 +3,9 @@
 
 
 # 2D Digital World Twin Creator v1.1
+
+**v1.1 milestone complete — 13 September 2026.** See the [changelog](CHANGELOG.md) for the release summary, final bridge/tunnel fixes, verification and remaining roadmap items.
+
 Project Website: https://www.shanescomputing.com.au/2D_Digital_World_Twin_Creator.html
 
 (disclaimer, GPT5.5 Sol was used to create this program & the README.md document) 
