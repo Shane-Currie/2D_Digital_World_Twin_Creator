@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://2ddigitalworldtwincreator.local/schemas/npc.schema.json",
+  "title": "Placed NPC",
+  "type": "object",
+  "required": ["schema_version", "id", "display_name", "persona_id", "location"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+    "display_name": { "type": "string", "minLength": 1 },
+    "persona_id": { "type": "string" },
+    "location": {
+      "type": "object",
+      "required": ["space", "position"],
+      "properties": {
+        "space": { "enum": ["town", "interior"] },
+        "town_id": { "type": "string" },
+        "building_id": { "type": "string" },
+        "floor_id": { "type": "string" },
+        "position": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+      }
+    }
+  },
+  "additionalProperties": false
+}
+

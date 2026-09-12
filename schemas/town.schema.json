@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://2ddigitalworldtwincreator.local/schemas/town.schema.json",
+  "title": "2D Digital World Twin Town",
+  "type": "object",
+  "required": ["schema_version", "creator_version", "kind", "id", "display_name", "source", "map_bounds", "cbd", "starting_location", "statistics"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "creator_version": { "type": "string" },
+    "kind": { "const": "digital_world_twin_town" },
+    "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+    "display_name": { "type": "string", "minLength": 1 },
+    "created_utc": { "type": "string" },
+    "source": {
+      "type": "object",
+      "required": ["format", "files"],
+      "properties": {
+        "format": { "const": "osm_xml" },
+        "files": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "original_files": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "map_bounds": { "$ref": "#/$defs/bounds" },
+    "cbd": {
+      "type": "object",
+      "required": ["type", "bounds"],
+      "properties": { "type": { "const": "bounding_box" }, "bounds": { "$ref": "#/$defs/bounds" } }
+    },
+    "starting_location": { "$ref": "#/$defs/location" },
+    "statistics": { "type": "object" }
+  },
+  "$defs": {
+    "bounds": {
+      "type": "object",
+      "required": ["west", "south", "east", "north"],
+      "properties": {
+        "west": { "type": "number" }, "south": { "type": "number" },
+        "east": { "type": "number" }, "north": { "type": "number" }
+      }
+    },
+    "location": {
+      "type": "object",
+      "required": ["longitude", "latitude", "vehicle"],
+      "properties": {
+        "longitude": { "type": "number" },
+        "latitude": { "type": "number" },
+        "label": { "type": "string" },
+        "osm_building_id": { "type": "string" },
+        "placement": { "type": "string" },
+        "entrance_verified": { "type": "boolean" },
+        "vehicle": {
+          "type": "object",
+          "required": ["longitude", "latitude"],
+          "properties": { "longitude": { "type": "number" }, "latitude": { "type": "number" } }
+        },
+        "clearance": { "type": "object" }
+      }
+    }
+  }
+}
