@@ -6,36 +6,6 @@ Creator Studio is a no-code Godot application for turning OpenStreetMap data int
 
 Choose an OpenStreetMap `.osm` file, mark the CBD and a safe starting location on the preview, choose the local driving side and game settings, then select where the new town will be saved. **Create town project** generates the map, building/water collisions and navigation; **Play test project** launches the result. Existing projects can be reopened from Home. Start this development version by double-clicking `Start Creator Studio.cmd`; it will find Godot or explain how to select/install it.
 
-## First working milestone
-
-The current v1.1 foundation provides:
-
-- A guided Godot GUI with Home, Town Import and System Setup pages.
-- Selection of one or more raw `.osm` XML files.
-- A visual preview of imported roads and building footprints.
-- Map-preview zoom buttons, mouse-wheel zoom and middle-button panning for detailed placement work.
-- Click-and-drag CBD selection and click-to-place starting location.
-- Hard spawn-safety checks: the player cannot start in a fixed building footprint, and the player's vehicle is automatically given a separate clear position on a nearby road.
-- An explicit folder picker controlling where the creator's game files are saved.
-- A portable, human-readable town content pack with copied OSM sources.
-- Clickable building-footprint inspection as the foundation for the exterior/interior editor.
-- Optional detection of Ollama, LM Studio and llama.cpp local services, clearly restricted to future NPC dialogue.
-- A deterministic command-line interface for Codex and automated checks.
-- A friendly development launcher that explains when a suitable Godot installation cannot be found.
-- A no-code Game Settings page for traffic, pedestrians, NPRs, NPDs, CBD targets, left/right road rules, visual skin-pigmentation distribution, player-vehicle handling and NPC traffic-jam recovery.
-- Generated vehicle and pedestrian route graphs derived from each imported town's own OSM roads, including one-way and access rules, OSM-node intersections and disconnected-area reporting.
-- Automatic metre-accurate building collision polygons derived from ordinary OSM building ways and multipolygon relations, including open inner courtyards and streamed map chunks.
-- Automatic OSM water, bridge and tunnel handling: closed water and reconstructable clipped coastlines block ground movement, tagged bridge decks remain legal surface routes, and tagged tunnel traffic travels below the surface.
-- Layer-aware bridge and tunnel portals: connected OSM pieces become one corridor with visible entry/exit markers. Water bridges stay visible; land overpasses reveal their upper deck after the player enters an endpoint zone, while the lower town and road remain visible and lower traffic stays on its independent layer.
-- A shared playable imported-town preview: **Play test project** opens the selected town in a separate game window with the walking player, drivable wagon, OSM roads/buildings, active footprint collision, moving traffic/NPCs/NPRs/NPDs, grass marks and an overview map.
-- The first direct gameplay migration from Generational Australian Survival: its four-direction pixel player, white Holden VZ wagon, scale/handling, safe enter/exit behaviour and pixel-style road populations now run against imported-town data.
-- A shared v1.3-style graphical renderer for every built town: play tests use the original 384×240 pixel-art presentation, compact HUD, green ground, bordered roads/footpaths and deterministic footprint-clipped roof, facade and window treatments selected from OSM tags.
-- A zoomable in-game town map with visible −, +, Fit and You controls, mouse-wheel zoom, drag panning and street names taken automatically from each imported map's OSM `name` tags.
-- A runtime feature profile carrying forward the complete v1.3 gameplay target, including the player, wagon, traffic, pedestrians, signals, venues, fences, collisions and camera.
-- An **Open previous project** workflow that restores the saved map, copied OSM sources, CBD, player/vehicle starts and project identity for continued editing.
-- A visible **Play test** readiness check. Current GUI-created or upgraded towns launch the shared preview; incomplete CLI-created packs receive a plain-language build message.
-
-Building texture upload, door placement, interior creation, custom NPC placement, persona conversations, the complete v1.3 simulation and Windows export are later milestones. This stage is a functional preview, not the finished game: traffic now understands imported signals/stops and basic queues/junction ownership/jam recovery, while detailed turning conflicts, venues/interiors, property boundaries/fences and save-game progress still need to be generalised.
 
 ## Starting Creator Studio
 
@@ -95,11 +65,36 @@ The shared preview consumes these graphs for moving traffic and walking NPCs/NPR
 
 This remains an early simulation. Imported signal/stop locations, simple signal phases, following gaps, basic junction ownership and jam relocation are connected; detailed turning arcs, compatible simultaneous movements and full pedestrian/vehicle conflict handling remain pending. Graph and visual generation work from imported map data without an LLM, but planet-scale/PBF streaming and every malformed or incomplete OSM dataset are not claimed.
 
-## Skin pigmentation tones
+## First working milestone
 
-The **Game settings** page contains visual-only percentage controls for very light, light, medium-light, medium, medium-dark, dark and very dark. **Equalize percentages** appears first and is selected by default. Manual changes turn equalisation off; selecting it again restores equal weights. Values must total 100% and do not affect any other NPC setting.
+The current v1.1 foundation provides:
 
-Population defaults also include 20 walking NPRs with a 100% CBD target and 10 flying NPDs with a 90% CBD target. NPRs share pedestrian navigation. NPDs use a map-bounded aerial network that may pass over building footprints.
+- A guided Godot GUI with Home, Town Import and System Setup pages.
+- Selection of one or more raw `.osm` XML files.
+- A visual preview of imported roads and building footprints.
+- Map-preview zoom buttons, mouse-wheel zoom and middle-button panning for detailed placement work.
+- Click-and-drag CBD selection and click-to-place starting location.
+- Hard spawn-safety checks: the player cannot start in a fixed building footprint, and the player's vehicle is automatically given a separate clear position on a nearby road.
+- An explicit folder picker controlling where the creator's game files are saved.
+- A portable, human-readable town content pack with copied OSM sources.
+- Clickable building-footprint inspection as the foundation for the exterior/interior editor.
+- Optional detection of Ollama, LM Studio and llama.cpp local services, clearly restricted to future NPC dialogue.
+- A deterministic command-line interface for Codex and automated checks.
+- A friendly development launcher that explains when a suitable Godot installation cannot be found.
+- A no-code Game Settings page for traffic, pedestrians, NPRs, NPDs, CBD targets, left/right road rules, visual skin-pigmentation distribution, player-vehicle handling and NPC traffic-jam recovery.
+- Generated vehicle and pedestrian route graphs derived from each imported town's own OSM roads, including one-way and access rules, OSM-node intersections and disconnected-area reporting.
+- Automatic metre-accurate building collision polygons derived from ordinary OSM building ways and multipolygon relations, including open inner courtyards and streamed map chunks.
+- Automatic OSM water, bridge and tunnel handling: closed water and reconstructable clipped coastlines block ground movement, tagged bridge decks remain legal surface routes, and tagged tunnel traffic travels below the surface.
+- Layer-aware bridge and tunnel portals: connected OSM pieces become one corridor with visible entry/exit markers. Water bridges stay visible; land overpasses reveal their upper deck after the player enters an endpoint zone, while the lower town and road remain visible and lower traffic stays on its independent layer.
+- A shared playable imported-town preview: **Play test project** opens the selected town in a separate game window with the walking player, drivable wagon, OSM roads/buildings, active footprint collision, moving traffic/NPCs/NPRs/NPDs, grass marks and an overview map.
+- The first direct gameplay migration from Generational Australian Survival: its four-direction pixel player, white Holden VZ wagon, scale/handling, safe enter/exit behaviour and pixel-style road populations now run against imported-town data.
+- A shared v1.3-style graphical renderer for every built town: play tests use the original 384×240 pixel-art presentation, compact HUD, green ground, bordered roads/footpaths and deterministic footprint-clipped roof, facade and window treatments selected from OSM tags.
+- A zoomable in-game town map with visible −, +, Fit and You controls, mouse-wheel zoom, drag panning and street names taken automatically from each imported map's OSM `name` tags.
+- A runtime feature profile carrying forward the complete v1.3 gameplay target, including the player, wagon, traffic, pedestrians, signals, venues, fences, collisions and camera.
+- An **Open previous project** workflow that restores the saved map, copied OSM sources, CBD, player/vehicle starts and project identity for continued editing.
+- A visible **Play test** readiness check. Current GUI-created or upgraded towns launch the shared preview; incomplete CLI-created packs receive a plain-language build message.
+
+Building texture upload, door placement, interior creation, custom NPC placement, persona conversations, the complete v1.3 simulation and Windows export are later milestones. This stage is a functional preview, not the finished game: traffic now understands imported signals/stops and basic queues/junction ownership/jam recovery, while detailed turning conflicts, venues/interiors, property boundaries/fences and save-game progress still need to be generalised.
 
 ## Codex-compatible CLI
 
