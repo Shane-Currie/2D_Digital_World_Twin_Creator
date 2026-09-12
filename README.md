@@ -1,10 +1,11 @@
-#Project Website
-https://www.shanescomputing.com.au/2D_Digital_World_Twin_Creator.html
 
 
 
-## 2D Digital World Twin Creator v1.1
-(disclaimer, GPT5.5 Sol was used to create this program and also authored this README.md document) 
+
+# 2D Digital World Twin Creator v1.1
+Project Website: https://www.shanescomputing.com.au/2D_Digital_World_Twin_Creator.html
+
+(disclaimer, GPT5.5 Sol was used to create this program & the README.md document) 
 
 
 Creator Studio is a no-code Godot application for turning OpenStreetMap data into editable 2D town projects. It is being developed for creative users who should not need to write Godot code.
