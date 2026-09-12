@@ -13,7 +13,7 @@ This closes the v1.1 scope, not the full product roadmap. Advanced editors, the 
 
 ## 2026-09-10 — v1.1 Creator Studio foundation
 
-- Created the first **2D Digital World Twin Creator** Godot project at the user-specified v1.1 location without changing the existing v1.3 game.
+- Created the first **2D Digital World Twin Creator** Godot project at the user-specified v1.1 location 
 - Added a beginner-oriented GUI shell and guided OSM town importer. Creators can choose multiple `.osm` files, preview roads/building footprints, draw a rectangular CBD, click the starting location and choose the directory where their game files are saved.
 - Added content-pack writing with copied source files, `town.json`, `data/map_features.json` and a validation report. Added documented v1 schemas for towns, future personas and future placed NPCs.
 - Added clickable building inspection as groundwork for exterior, entrance and interior tools; those editing features remain pending.
