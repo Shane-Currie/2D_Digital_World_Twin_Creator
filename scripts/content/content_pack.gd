@@ -7,12 +7,14 @@ const GameSettingsStoreScript = preload("res://scripts/settings/game_settings_st
 const SpawnSafetyScript = preload("res://scripts/towns/spawn_safety.gd")
 const NavigationBuilderScript = preload("res://scripts/navigation/osm_navigation_builder.gd")
 const BuildingCollisionBuilderScript = preload("res://scripts/collisions/building_collision_builder.gd")
+const BuildingInformationScript = preload("res://scripts/places/osm_building_information.gd")
 const REQUIRED_RUNTIME_FEATURES := [
 	"walking_player", "player_driven_wagon", "npc_pedestrians", "npc_traffic",
 	"traffic_signals_and_intersections", "traffic_jam_recovery", "cbd_population_targets",
 	"osm_roads_and_buildings", "building_collisions", "venues_and_interiors",
 	"property_boundaries", "breakable_fences", "camera_and_minimap", "saveable_game_settings",
-	"not_playable_robots", "non_playable_drones", "aerial_navigation", "grass_and_surface_tracks"
+	"not_playable_robots", "non_playable_drones", "aerial_navigation", "grass_and_surface_tracks",
+	"osm_building_place_information"
 ]
 
 ## Writes a town as ordinary JSON and copied source files. No scripts are imported.
@@ -107,6 +109,10 @@ func save_town(
 	)
 	if not settings_result.ok:
 		return {"ok": false, "message": settings_result.message}
+	var information_result := _write_building_information(data_directory, import_result.features)
+	if not information_result.ok:
+		return information_result
+	validation["building_information"] = information_result.summary
 	var collision_result := _write_building_collisions(data_directory, import_result.features, import_result.bounds)
 	if not collision_result.ok:
 		return collision_result
@@ -216,6 +222,10 @@ func update_town(town_directory: String, display_name: String, import_result: Di
 	var settings_result: Dictionary = GameSettingsStoreScript.save_to_town(town_directory, settings_to_save)
 	if not settings_result.ok:
 		return {"ok": false, "message": settings_result.message}
+	var information_result := _write_building_information(town_directory.path_join("data"), import_result.features)
+	if not information_result.ok:
+		return information_result
+	validation["building_information"] = information_result.summary
 	var collision_result := _write_building_collisions(town_directory.path_join("data"), import_result.features, import_result.bounds)
 	if not collision_result.ok:
 		return collision_result
@@ -270,6 +280,8 @@ func _runtime_profile() -> Dictionary:
 		"capabilities": {
 			"building_collision_data": "ready",
 			"building_collision_streaming_loader": "ready",
+			"osm_building_place_information": "ready",
+			"hover_and_pinned_building_popups": "preview_ready",
 			"map_geometry_conflict_validation": "ready",
 			"crossing_building_collision_separation": "ready",
 			"map_rendering": "ready",
@@ -306,6 +318,18 @@ func _runtime_profile() -> Dictionary:
 			"save_game_progress"
 		]
 	}
+
+
+func _write_building_information(data_directory: String, features: Array) -> Dictionary:
+	DirAccess.make_dir_recursive_absolute(data_directory)
+	var build_result: Dictionary = BuildingInformationScript.new().build(features)
+	if not build_result.ok:
+		return {"ok": false, "message": "Creator Studio could not prepare the building information."}
+	var information_data: Dictionary = build_result.data
+	var write_error := _write_json(data_directory.path_join("place_information.json"), information_data)
+	if write_error != OK:
+		return {"ok": false, "message": "Creator Studio could not save the building information."}
+	return {"ok": true, "summary": information_data.statistics}
 
 
 func _write_building_collisions(data_directory: String, features: Array, map_bounds: Dictionary) -> Dictionary:

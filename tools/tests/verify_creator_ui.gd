@@ -85,6 +85,10 @@ func _run_checks() -> void:
 	var building: Dictionary = imported.features.filter(func(feature): return feature.kind == "building")[0]
 	assert(building.points[0] == building.points[building.points.size() - 1], "Fixture must include a normal closed OSM polygon.")
 	assert(studio.map_canvas._screen_polygon(building.points).size() == building.points.size() - 1, "Duplicate closing node was not removed before drawing.")
+	studio._on_building_selected(building)
+	assert(studio.building_information.text.contains("Fixture House"))
+	assert(studio.building_information.text.contains("© OpenStreetMap contributors"))
+	assert(studio.building_information.text.contains("OSM way 100"))
 
 	studio._show_game_settings_page()
 	await process_frame

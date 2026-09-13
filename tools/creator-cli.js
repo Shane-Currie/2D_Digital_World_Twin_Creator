@@ -20,7 +20,8 @@ const REQUIRED_RUNTIME_FEATURES = [
   'traffic_signals_and_intersections', 'traffic_jam_recovery', 'cbd_population_targets',
   'osm_roads_and_buildings', 'building_collisions', 'venues_and_interiors',
   'property_boundaries', 'breakable_fences', 'camera_and_minimap', 'saveable_game_settings',
-  'not_playable_robots', 'non_playable_drones', 'aerial_navigation', 'grass_and_surface_tracks'
+  'not_playable_robots', 'non_playable_drones', 'aerial_navigation', 'grass_and_surface_tracks',
+  'osm_building_place_information'
 ];
 
 function recommendedGameSettings() {
@@ -132,6 +133,88 @@ function buildingBlocksGround(feature) {
   const level = Number(tags.level);
   if (Number.isFinite(level) && level < 0) return false;
   return true;
+}
+
+function safeOsmText(value, maximum = 120) {
+  const text = String(value || '').replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  return text.length <= maximum ? text : `${text.slice(0, Math.max(1, maximum - 1)).trim()}…`;
+}
+
+function humaniseOsmValue(value) {
+  const text = safeOsmText(value).replaceAll('_', ' ');
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : '';
+}
+
+function osmCategory(tags) {
+  const known = {
+    arts_centre: 'Arts centre', community_centre: 'Community centre', fire_station: 'Fire station',
+    police: 'Police station', doctors: 'Medical clinic', dentist: 'Dental clinic',
+    place_of_worship: 'Place of worship', townhall: 'Town hall', fuel: 'Fuel station',
+    fast_food: 'Fast food', train_station: 'Train station'
+  };
+  for (const key of ['amenity', 'healthcare', 'shop', 'office', 'tourism', 'leisure', 'industrial', 'craft', 'public_transport', 'railway']) {
+    const value = safeOsmText(tags[key]);
+    if (!value || value === 'yes') continue;
+    let label = known[value] || humaniseOsmValue(value);
+    if (key === 'shop' && !known[value]) label += ' shop';
+    if (key === 'office' && !known[value]) label += ' office';
+    return { label, source_tag: `${key}=${value}` };
+  }
+  const building = safeOsmText(tags.building);
+  if (!building || building === 'yes') return { label: 'Building type not mapped in OSM', source_tag: building ? 'building=yes' : '' };
+  return { label: humaniseOsmValue(building), source_tag: `building=${building}` };
+}
+
+function osmAddress(tags) {
+  const firstLine = [safeOsmText(tags['addr:housenumber']), safeOsmText(tags['addr:street'])].filter(Boolean).join(' ');
+  const locality = [...new Set(['addr:suburb', 'addr:city', 'addr:county', 'addr:state', 'addr:postcode', 'addr:country'].map(key => safeOsmText(tags[key])).filter(Boolean))].join(', ');
+  return safeOsmText(firstLine && locality ? `${firstLine}, ${locality}` : firstLine || locality);
+}
+
+function osmSourceElement(featureId) {
+  if (featureId.startsWith('relation:')) return { type: 'OSM relation', id: featureId.split(':')[1] };
+  if (featureId.startsWith('way:')) return { type: 'OSM way', id: featureId.split(':')[1] };
+  return { type: 'OSM way', id: featureId };
+}
+
+function describeBuildingFeature(feature) {
+  const tags = feature.tags || {}, featureId = String(feature.id || 'unknown');
+  const category = osmCategory(tags), sourceElement = osmSourceElement(featureId);
+  const name = safeOsmText(tags.name || tags['addr:housename']) || 'Unnamed building';
+  const address = osmAddress(tags), operator = safeOsmText(tags.operator || tags.brand);
+  const levels = safeOsmText(tags['building:levels'] || tags.levels);
+  const openingHours = safeOsmText(tags.opening_hours);
+  const wheelchairValues = { yes: 'Mapped as accessible', limited: 'Mapped as limited', no: 'Mapped as not accessible' };
+  const wheelchairAccess = wheelchairValues[String(tags.wheelchair || '').toLowerCase()] || humaniseOsmValue(tags.wheelchair);
+  const details = [{ label: 'Mapped use', value: category.label, source_tag: category.source_tag }];
+  for (const detail of [
+    { label: 'Address', value: address, source_tag: 'addr:*' },
+    { label: 'Operator', value: operator, source_tag: 'operator/brand' },
+    { label: 'Levels', value: levels, source_tag: 'building:levels' },
+    { label: 'Opening hours', value: openingHours, source_tag: 'opening_hours' },
+    { label: 'Wheelchair access', value: wheelchairAccess, source_tag: 'wheelchair' }
+  ]) if (detail.value) details.push(detail);
+  return {
+    feature_id: featureId, name, category: category.label, category_source_tag: category.source_tag,
+    has_specific_type: !['', 'building=yes'].includes(category.source_tag), address, operator, levels,
+    opening_hours: openingHours, wheelchair_access: wheelchairAccess, details, source_element: sourceElement,
+    source_reference: `${sourceElement.type} ${sourceElement.id}`, source_attribution: '© OpenStreetMap contributors',
+    information_scope: 'tags_on_this_footprint'
+  };
+}
+
+function buildPlaceInformation(features) {
+  const places = features.filter(feature => ['building', 'fixed_footprint', 'overhead_structure'].includes(String(feature.kind || ''))).map(describeBuildingFeature);
+  return {
+    schema_version: 1, kind: 'osm_building_place_information', source_attribution: '© OpenStreetMap contributors',
+    information_scope: 'osm_tags_on_selected_footprint', places,
+    statistics: {
+      building_footprints: places.length,
+      named_buildings: places.filter(place => place.name !== 'Unnamed building').length,
+      specifically_classified_buildings: places.filter(place => place.has_specific_type).length,
+      addressed_buildings: places.filter(place => place.address).length
+    }
+  };
 }
 
 function isWaterArea(tags) {
@@ -901,6 +984,7 @@ function importTown(options) {
   };
   writeJson(path.join(townDirectory, 'town.json'), town);
   writeJson(path.join(dataDirectory, 'map_features.json'), { schema_version: SCHEMA_VERSION, preserves_osm_node_tags: true, features: parsed.features });
+  writeJson(path.join(dataDirectory, 'place_information.json'), buildPlaceInformation(parsed.features));
   writeJson(path.join(dataDirectory, 'building_collisions.json'), buildBuildingCollisions(parsed.features, parsed.bounds));
   writeJson(path.join(townDirectory, 'game_settings.json'), recommendedGameSettings());
   writeJson(path.join(townDirectory, 'runtime_profile.json'), {
@@ -914,6 +998,7 @@ function importTown(options) {
     capabilities: {
       building_collision_data: 'ready',
       building_collision_streaming_loader: 'ready',
+      osm_building_place_information: 'ready',
       osm_water_placement: 'ready',
       bridge_water_crossings: 'ready',
       tunnel_layer_metadata: 'ready',
@@ -984,6 +1069,14 @@ function validateTownDirectory(townDirectoryValue) {
       warnings.push(...(collisionIndex.warnings || []));
     } catch { errors.push('data/building_collisions.json is not valid JSON.'); }
   }
+  const placeInformationPath = path.join(townDirectory, 'data', 'place_information.json');
+  if (fs.existsSync(placeInformationPath)) {
+    try {
+      const placeInformation = JSON.parse(fs.readFileSync(placeInformationPath, 'utf8'));
+      if (placeInformation.kind !== 'osm_building_place_information' || !Array.isArray(placeInformation.places)) errors.push('data/place_information.json is invalid.');
+      if (placeInformation.source_attribution !== '© OpenStreetMap contributors') errors.push('Building information is missing its OpenStreetMap attribution.');
+    } catch { errors.push('data/place_information.json is not valid JSON.'); }
+  } else warnings.push('Building information has not been generated yet. Rebuild this older project to add hover/click details.');
   const settingsPath = path.join(townDirectory, 'game_settings.json');
   if (!fs.existsSync(settingsPath)) errors.push('game_settings.json is missing.');
   else {
@@ -1004,6 +1097,7 @@ function validateTownDirectory(townDirectoryValue) {
       town_file: Boolean(town),
       source_files: !errors.some(error => error.startsWith('Source file')),
       feature_index: fs.existsSync(featureIndexPath),
+      place_information: fs.existsSync(placeInformationPath) && !errors.some(error => error.includes('place_information') || error.includes('OpenStreetMap attribution')),
       building_collisions: fs.existsSync(buildingCollisionsPath) && !errors.some(error => error.includes('building_collisions')),
       game_settings: fs.existsSync(settingsPath) && !errors.some(error => error.includes('settings')),
       runtime_profile: fs.existsSync(runtimeProfilePath)
@@ -1101,7 +1195,28 @@ function inspectTown(options) {
   const townDirectory = path.resolve(String(options.town));
   const town = JSON.parse(fs.readFileSync(path.join(townDirectory, 'town.json'), 'utf8'));
   const validation = validateTownDirectory(townDirectory);
-  return { ok: true, town_directory: townDirectory, town, validation };
+  const placeInformationPath = path.join(townDirectory, 'data', 'place_information.json');
+  const placeInformation = fs.existsSync(placeInformationPath) ? JSON.parse(fs.readFileSync(placeInformationPath, 'utf8')) : {};
+  return {
+    ok: true, town_directory: townDirectory, town, validation,
+    place_information: placeInformation.statistics ? {
+      statistics: placeInformation.statistics,
+      source_attribution: placeInformation.source_attribution
+    } : null
+  };
+}
+
+function inspectBuilding(options) {
+  if (!options.town) throw new Error('--town is required.');
+  if (!options['feature-id']) throw new Error('--feature-id is required. Select the OSM building ID shown by Creator Studio.');
+  const townDirectory = path.resolve(String(options.town));
+  const placeInformationPath = path.join(townDirectory, 'data', 'place_information.json');
+  if (!fs.existsSync(placeInformationPath)) throw new Error('Building information has not been generated. Rebuild this project in Creator Studio first.');
+  const placeInformation = JSON.parse(fs.readFileSync(placeInformationPath, 'utf8'));
+  const featureId = String(options['feature-id']);
+  const building = (placeInformation.places || []).find(place => String(place.feature_id) === featureId);
+  if (!building) throw new Error(`No building information was found for feature ${featureId}.`);
+  return { ok: true, town_directory: townDirectory, building };
 }
 
 function listTowns(options) {
@@ -1126,6 +1241,7 @@ Commands:
   import-town  --name NAME --workspace DIR --osm FILE [--osm FILE] --cbd W,S,E,N --start LON,LAT [--json]
   validate-town --town DIR [--json]
   inspect-town  --town DIR [--json]
+  inspect-building --town DIR --feature-id OSM_ID [--json]
   list-towns    --workspace DIR [--json]
   get-settings  --town DIR [--json]
   set-settings  --town DIR [--traffic-car-count N] [--pedestrian-count N]
@@ -1160,6 +1276,7 @@ function main() {
     if (command === 'import-town') result = importTown(options);
     else if (command === 'validate-town') result = { ok: true, town_directory: path.resolve(String(options.town || '')), validation: validateTownDirectory(options.town || '') };
     else if (command === 'inspect-town') result = inspectTown(options);
+    else if (command === 'inspect-building') result = inspectBuilding(options);
     else if (command === 'list-towns') result = listTowns(options);
     else if (command === 'get-settings') result = getGameSettings(options);
     else if (command === 'set-settings') result = updateGameSettings(options);
@@ -1175,4 +1292,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { parseOsmFiles, buildBuildingCollisions, importTown, validateTownDirectory, listTowns, recommendedGameSettings, validateGameSettings, getGameSettings, updateGameSettings, createStartingLocation, validateStartingLocation, distanceToFixedFootprints };
+module.exports = { parseOsmFiles, buildBuildingCollisions, buildPlaceInformation, describeBuildingFeature, importTown, validateTownDirectory, inspectBuilding, listTowns, recommendedGameSettings, validateGameSettings, getGameSettings, updateGameSettings, createStartingLocation, validateStartingLocation, distanceToFixedFootprints };

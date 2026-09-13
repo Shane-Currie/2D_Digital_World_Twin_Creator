@@ -6,6 +6,7 @@ const ContentPackWriterScript = preload("res://scripts/content/content_pack.gd")
 const LocalLlmProbeScript = preload("res://scripts/npcs/local_llm_probe.gd")
 const GameSettingsStoreScript = preload("res://scripts/settings/game_settings_store.gd")
 const ProjectLoaderScript = preload("res://scripts/content/project_loader.gd")
+const BuildingInformationScript = preload("res://scripts/places/osm_building_information.gd")
 
 const BACKGROUND := Color("#0f1715")
 const PANEL := Color("#18241f")
@@ -817,9 +818,18 @@ func _on_start_rejected(message: String) -> void:
 
 
 func _on_building_selected(building: Dictionary) -> void:
-	var building_type: String = str(building.tags.get("building", "yes"))
-	var building_name: String = str(building.tags.get("name", "Unnamed building"))
-	building_information.text = "Selected building %s · %s · %s\nExterior and interior editing will build on this selection in the next milestone." % [building.id, building_type, building_name]
+	var record: Dictionary = BuildingInformationScript.describe_feature(building)
+	var lines: Array[String] = [
+		str(record.name),
+		"Mapped use: %s" % str(record.category)
+	]
+	if not str(record.address).is_empty():
+		lines.append("Address: %s" % str(record.address))
+	if not str(record.operator).is_empty():
+		lines.append("Operator: %s" % str(record.operator))
+	lines.append("Source: %s · %s" % [str(record.source_attribution), str(record.source_reference)])
+	lines.append("Only tags attached to this footprint are shown; missing details are not invented.")
+	building_information.text = "\n".join(PackedStringArray(lines))
 
 
 func _refresh_create_button(_unused := "") -> void:
@@ -921,7 +931,7 @@ func _create_town_project() -> bool:
 	if blocked_segment_count > 0 or vertical_road_count > 0 or clearance_count > 0:
 		geometry_message = " Safety check: %d road segment(s) through solid buildings and %d ambiguous layered road(s) were excluded; %d close but centre-line-clear segment(s) were kept for review. Details are saved in validation.json." % [blocked_segment_count, vertical_road_count, clearance_count]
 	var rebuild_note := " Rebuild source: %s." % source_note if rebuilding and not source_note.is_empty() else ""
-	selection_instructions.text = "%s successfully. Building collisions, pathfinding and traffic rules were generated automatically from the OSM map.%s%s%s Your source files remain unchanged." % ["Town project rebuilt" if rebuilding else "Town project created", control_message, geometry_message, rebuild_note]
+	selection_instructions.text = "%s successfully. Building information, collisions, pathfinding and traffic rules were generated automatically from the OSM map.%s%s%s Hover or click a building during Play test to read its mapped details. Your source files remain unchanged." % ["Town project rebuilt" if rebuilding else "Town project created", control_message, geometry_message, rebuild_note]
 	return true
 
 

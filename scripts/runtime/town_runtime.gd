@@ -7,6 +7,7 @@ const PlayerScript = preload("res://scripts/runtime/runtime_player_character.gd"
 const PlayerVehicleScript = preload("res://scripts/runtime/runtime_player_vehicle.gd")
 const PopulationScript = preload("res://scripts/runtime/runtime_population.gd")
 const TracksScript = preload("res://scripts/runtime/runtime_tracks.gd")
+const BuildingInformationScript = preload("res://scripts/places/osm_building_information.gd")
 
 var town_directory := ""
 var town: Dictionary = {}
@@ -25,6 +26,11 @@ var hud_help: Label
 var map_coordinates: Label
 var map_buttons: HBoxContainer
 var tunnel_background: ColorRect
+var building_information
+var building_popup: PanelContainer
+var building_popup_label: Label
+var pinned_building_id := ""
+var building_popup_anchor := Vector2.ZERO
 var occupied := false
 var overview := false
 var overview_base_zoom := 1.0
@@ -70,6 +76,23 @@ func _ready() -> void:
 	renderer = WorldRendererScript.new()
 	add_child(renderer)
 	renderer.setup(features, collision_data, town.map_bounds)
+	var information_path := town_directory.path_join("data").path_join("place_information.json")
+	var information_data: Dictionary = {}
+	if FileAccess.file_exists(information_path):
+		var information_result := _read_json(information_path)
+		if information_result.ok:
+			information_data = information_result.data
+	if information_data.is_empty():
+		# Older v1.1 projects remain playable before their next Rebuild. The same
+		# deterministic builder prepares an in-memory index without changing files.
+		information_data = BuildingInformationScript.new().build(features).data
+	building_information = BuildingInformationScript.new()
+	building_information.setup_spatial_index(
+		features,
+		information_data,
+		func(value: Variant) -> Vector2:
+			return ProjectionScript.geographic_to_world(ProjectionScript.value_to_location(value), projection, scale)
+	)
 	collisions = CollisionRuntimeScript.new()
 	add_child(collisions)
 	assert(collisions.setup(collision_data).ok)
@@ -181,7 +204,7 @@ func _process(delta: float) -> void:
 		hud_label.size.x = 322.0
 		hud_label.text = location_text
 	hud_status.text = status_text
-	hud_help.text = "Wheel or −/+ zoom · drag · Fit/You · M close" if overview else "M map  ·  E interact  ·  Esc close"
+	hud_help.text = "Wheel/−/+ zoom · drag empty ground · click building · M close" if overview else "Hover/click buildings · M map · E interact · Esc close"
 	map_coordinates.visible = overview
 	if overview:
 		# Invert the rendered camera transform so smoothing cannot make the
@@ -192,6 +215,7 @@ func _process(delta: float) -> void:
 		var latitude := float(projection.origin_latitude) - centre.y / scale / float(projection.latitude_metres_per_degree)
 		var longitude := float(projection.origin_longitude) + centre.x / scale / float(projection.longitude_metres_per_degree)
 		map_coordinates.text = "Latitude: %.6f°\nLongitude: %.6f°" % [latitude, longitude]
+	_update_building_popup(covered_view)
 
 
 func _update_land_bridge_state(_focus_position: Vector2, _travel_direction: Vector2 = Vector2.ZERO) -> void:
@@ -238,6 +262,22 @@ func _verify_runtime() -> void:
 	assert(renderer._building_style({"amenity": "hospital"}, "health") == "health")
 	assert(renderer._building_style({"building": "warehouse"}, "shed") == "industrial")
 	assert(renderer._building_style({"building": "apartments"}, "flats") == "tall")
+	assert(building_information.indexed_footprints.size() > 0, "The imported buildings were not available for hover/click information.")
+	var information_record: Dictionary = building_information.first_named_record()
+	assert(not information_record.is_empty())
+	assert(str(information_record.source_attribution) == "© OpenStreetMap contributors")
+	assert(building_popup != null and building_popup_label != null)
+	pinned_building_id = str(information_record.feature_id)
+	building_popup_anchor = Vector2(380.0, 205.0)
+	_update_building_popup(false)
+	assert(building_popup.visible and building_popup_label.text.contains("© OpenStreetMap contributors"))
+	assert(building_popup.position.x >= 4.0 and building_popup.position.y >= 36.0)
+	assert(
+		building_popup.position.x + building_popup.size.x <= 380.0 and building_popup.position.y + building_popup.size.y <= 207.0,
+		"Building popup escaped the safe play area: position=%s size=%s" % [building_popup.position, building_popup.size]
+	)
+	pinned_building_id = ""
+	building_popup.hide()
 	var nearby_road: Dictionary = renderer.nearest_named_road(wagon.position, 160.0 * float(collision_data.runtime_scale.pixels_per_metre))
 	if not nearby_road.is_empty():
 		assert(_location_heading(wagon.position).contains(str(nearby_road.name)))
@@ -395,6 +435,18 @@ func _capture_runtime(path_value: String) -> void:
 		capture_camera_locked = true
 		camera.position_smoothing_enabled = false
 		camera.position = player.position
+	elif capture_focus == "building-info":
+		var record: Dictionary = building_information.first_named_record()
+		assert(not record.is_empty(), "The capture map needs at least one imported building.")
+		var building_centre: Vector2 = building_information.world_centre_for_feature(str(record.feature_id))
+		assert(building_centre != Vector2.INF)
+		capture_camera_locked = true
+		camera.position_smoothing_enabled = false
+		camera.position = building_centre
+		camera.zoom = Vector2.ONE * 0.6
+		pinned_building_id = str(record.feature_id)
+		building_popup_anchor = Vector2(174.0, 112.0)
+		_update_building_popup(false)
 	elif capture_focus == "map":
 		overview = true
 		map_buttons.visible = true
@@ -454,6 +506,17 @@ func _fit_camera_to_path(points: PackedVector2Array) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and _screen_can_select_building(event.position):
+		var selected_building := _building_at_screen(event.position)
+		if not selected_building.is_empty():
+			pinned_building_id = str(selected_building.feature_id)
+			building_popup_anchor = event.position
+			_update_building_popup(false)
+			get_viewport().set_input_as_handled()
+			return
+		if not pinned_building_id.is_empty():
+			pinned_building_id = ""
+			building_popup.hide()
 	if overview and event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
 			_zoom_overview(1.35)
@@ -664,6 +727,68 @@ func _build_hud() -> void:
 				_zoom_overview(1.0 / 1.5)
 		)
 		map_buttons.add_child(button)
+	building_popup = PanelContainer.new()
+	building_popup.name = "BuildingInformationPopup"
+	building_popup.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	building_popup.clip_contents = true
+	building_popup.visible = false
+	var popup_style := StyleBoxFlat.new()
+	popup_style.bg_color = Color("#17231ff2")
+	popup_style.border_color = Color("#5bd6b2")
+	popup_style.set_border_width_all(1)
+	popup_style.set_corner_radius_all(3)
+	popup_style.content_margin_left = 6
+	popup_style.content_margin_right = 6
+	popup_style.content_margin_top = 4
+	popup_style.content_margin_bottom = 4
+	building_popup.add_theme_stylebox_override("panel", popup_style)
+	canvas.add_child(building_popup)
+	building_popup_label = Label.new()
+	building_popup_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	building_popup_label.clip_text = true
+	building_popup_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	building_popup_label.add_theme_font_size_override("font_size", 7)
+	building_popup_label.add_theme_color_override("font_color", Color("#f3edcf"))
+	building_popup.add_child(building_popup_label)
+
+
+func _update_building_popup(covered_view: bool) -> void:
+	if building_popup == null or building_information == null or covered_view or map_dragging:
+		if building_popup != null:
+			building_popup.hide()
+		return
+	var record: Dictionary = {}
+	var pinned := not pinned_building_id.is_empty()
+	if pinned:
+		record = building_information.record_for_feature(pinned_building_id)
+	else:
+		var mouse_position := get_viewport().get_mouse_position()
+		if _screen_can_select_building(mouse_position):
+			record = _building_at_screen(mouse_position)
+			building_popup_anchor = mouse_position
+	if record.is_empty():
+		building_popup.hide()
+		return
+	var lines: Array[String] = BuildingInformationScript.detailed_popup_lines(record) if pinned else BuildingInformationScript.brief_popup_lines(record)
+	building_popup_label.text = "\n".join(PackedStringArray(lines))
+	var popup_size := Vector2(202.0, float(lines.size() * 9 + 9))
+	building_popup_label.custom_minimum_size = Vector2(190.0, popup_size.y - 8.0)
+	building_popup.size = popup_size
+	var desired := building_popup_anchor + Vector2(10.0, 8.0)
+	building_popup.position = Vector2(
+		clampf(desired.x, 4.0, 380.0 - popup_size.x),
+		clampf(desired.y, 36.0, 207.0 - popup_size.y)
+	)
+	building_popup.show()
+
+
+func _building_at_screen(screen_position: Vector2) -> Dictionary:
+	var world_position := get_viewport().get_canvas_transform().affine_inverse() * screen_position
+	return building_information.building_at(world_position)
+
+
+func _screen_can_select_building(screen_position: Vector2) -> bool:
+	return screen_position.x >= 0.0 and screen_position.x <= 384.0 and screen_position.y >= 34.0 and screen_position.y <= 210.0
 
 
 func _add_start_marker() -> void:

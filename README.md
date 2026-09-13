@@ -50,6 +50,8 @@ From **Home**, select **Open previous project** and choose the town folder conta
 
 Select **Play test project** to open the loaded town in a separate game window. If all six setup steps are complete but the town has not been generated yet, this button now creates it automatically and asks the creator to select Play once more; it no longer sends them back to Create in a loop. Use the arrow keys to walk, move beside the wagon and press **E** to enter it, use the arrow keys to drive, press **E** to exit, press **M** for the full-town map and press **Escape** to close the game window. On the map, use the mouse wheel or −/+ buttons to zoom, drag with the left mouse button to move around, select **Fit** to show the whole town, or **You** to return to the player's location. The Creator Studio stays open so work is not lost.
 
+Hover over a building to see its mapped name/use and source, or click it to pin fuller details such as its available address, operator, levels, opening hours and accessibility. Click empty ground to close it; in map mode, dragging still begins from empty ground. Every popup identifies **© OpenStreetMap contributors** and its source way/relation ID. Missing information is shown as not mapped instead of being invented. Rebuild older projects to save their `data/place_information.json`; details and limitations are in [docs/building_information.md](docs/building_information.md).
+
 The play window automatically uses the same 384×240 logical scale and compact HUD as v1.3 while Creator Studio itself keeps its larger editing layout. Buildings are styled from each map's own OSM tags and exact footprint; unlabelled buildings receive a stable generic house variant. The same town always rebuilds with the same visual choices, and no Wodonga- or Albury-specific graphics rule is required.
 
 Street labels also come from the current town's own OSM data. Major roads are prioritised at broad zoom levels; secondary and local street names appear progressively while zooming in. Roads that have no OSM `name` cannot be labelled reliably and remain unnamed rather than receiving an invented name.
@@ -108,6 +110,7 @@ The inherited v1.1 foundation available in v1.2 provides:
 - A runtime feature profile carrying forward the complete v1.3 gameplay target, including the player, wagon, traffic, pedestrians, signals, venues, fences, collisions and camera.
 - An **Open previous project** workflow that restores the saved map, copied OSM sources, CBD, player/vehicle starts and project identity for continued editing.
 - A visible **Play test** readiness check. Current GUI-created or upgraded towns launch the shared preview; incomplete CLI-created packs receive a plain-language build message.
+- OSM-attributed building information in both Creator **Inspect** and the playable game: hover for a quick summary, click to pin details, and click empty ground to close it. Direct footprint tags are used without an LLM or invented missing facts.
 
 Building texture upload, door placement, interior creation, custom NPC placement, persona conversations, the complete v1.3 simulation and Windows export are later milestones. This stage is a functional preview, not the finished game: traffic now understands imported signals/stops and basic queues/junction ownership/jam recovery, while detailed turning conflicts, venues/interiors, property boundaries/fences and save-game progress still need to be generalised.
 
@@ -119,6 +122,7 @@ Node.js is needed only for the development CLI, not for the finished Creator Stu
 node tools/creator-cli.js help
 node tools/creator-cli.js list-towns --workspace <directory> --json
 node tools/creator-cli.js inspect-town --town <town-directory> --json
+node tools/creator-cli.js inspect-building --town <town-directory> --feature-id <OSM_ID> --json
 node tools/creator-cli.js validate-town --town <town-directory> --json
 node tools/creator-cli.js get-settings --town <town-directory> --json
 node tools/creator-cli.js set-settings --town <town-directory> --traffic-car-count 200 --cbd-car-percent 70 --json

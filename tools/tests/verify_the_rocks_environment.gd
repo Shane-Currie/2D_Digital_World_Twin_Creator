@@ -4,6 +4,7 @@ const ImporterScript = preload("res://scripts/towns/osm_importer.gd")
 const CollisionBuilderScript = preload("res://scripts/collisions/building_collision_builder.gd")
 const NavigationBuilderScript = preload("res://scripts/navigation/osm_navigation_builder.gd")
 const RendererScript = preload("res://scripts/runtime/runtime_world_renderer.gd")
+const BuildingInformationScript = preload("res://scripts/places/osm_building_information.gd")
 
 
 func _initialize() -> void:
@@ -61,6 +62,15 @@ func _initialize() -> void:
 	print("THE ROCKS GEOMETRY STATS: ", geometry_statistics)
 	print("THE ROCKS ROUTE EXCLUSIONS: vehicle=", navigation.vehicle.excluded_building_conflict_segments, " pedestrian=", navigation.pedestrian.excluded_building_conflict_segments)
 	assert(int(geometry_statistics.unclassified_vertical_roads) > 0, "The real map should expose ambiguous non-zero-layer roads for safe exclusion.")
+	var place_information: Dictionary = BuildingInformationScript.new().build(imported.features).data
+	var opera_house: Dictionary = {}
+	for place_value in place_information.places:
+		if str(place_value.name) == "Sydney Opera House":
+			opera_house = place_value
+			break
+	assert(not opera_house.is_empty(), "The real map's directly tagged Sydney Opera House information was not retained.")
+	assert(opera_house.category == "Arts centre" and opera_house.source_reference == "OSM relation 9596872")
+	assert(opera_house.source_attribution == "© OpenStreetMap contributors")
 	var bridge_edges := 0
 	var tunnel_edges := 0
 	for edge_value in navigation.vehicle.edges:

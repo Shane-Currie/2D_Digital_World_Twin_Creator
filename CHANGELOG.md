@@ -23,6 +23,20 @@
 - An isolated The Rocks v1.2 rebuild passed content validation and the shared runtime startup/control check with 330 moving road users and nine collision chunks. Navigation, water, Gold Coast, crossing-boundary, Creator UI and 76-check Node/content regressions passed. Headless Godot emitted only the known sandbox log/certificate warnings.
 - These are focused correctness and startup checks, not extended city performance or proof that incomplete/mistagged OSM can be repaired automatically. Close-clearance records and excluded ambiguous routes remain review items for the later Advanced Map Editor.
 
+## 2026-09-13 — Stage 3 OSM building and place information
+
+- Added map-independent building descriptions generated solely from tags attached to each imported footprint. Readable fields cover mapped name/use, address including county/country when supplied, operator/brand, levels, opening hours and wheelchair access. A generic `building=yes` truthfully displays **Building type not mapped in OSM** rather than receiving an invented use.
+- Play tests now show a compact floating summary when the mouse hovers over a visible building. Clicking pins the fuller details and clicking empty ground closes them. In M map view, dragging still starts on empty ground; a building click selects the footprint. Popups stay between the HUD bars and hide with surface buildings during tunnel/under-bridge isolated views.
+- Every quick and pinned popup displays **© OpenStreetMap contributors** plus the source OSM way or relation ID. Imported strings are plain, line-flattened and length-limited. Creator Studio's existing **Inspect** action now uses the same truthful wording and provenance.
+- Create/Rebuild writes canonical `data/place_information.json` under a documented schema. The runtime joins it to footprint geometry through stable IDs and uses a spatial grid instead of scanning a whole city on each pointer update. Older projects receive an in-memory fallback and save the file on Rebuild. The Node CLI generates matching data, validates it, summarizes it through `inspect-town` and supports `inspect-building --feature-id` for Codex.
+
+### Focused verification
+
+- Synthetic checks passed for named and unnamed buildings, semantic tags, county/country addresses, flattened imported line breaks, OSM way/relation provenance, overlapping footprints, courtyard holes, underground surface exclusion and hover/pinned wording.
+- Godot and Node produced identical The Rocks totals: 731 building/display records including overhead structures, 131 named, 485 specifically classified and 337 addressed. The directly tagged Sydney Opera House resolves as **Arts centre**, OSM relation `9596872`, with OpenStreetMap attribution.
+- Creator UI and 87-check Node/content regressions passed. The rebuilt The Rocks project launched with 330 moving road users and nine collision chunks. The actual pinned popup was inspected in `tools/tests/output/building_information_the_rocks_v2.png`; it remained inside the play area with the HUD and source line readable.
+- This stage does not assign nearby/contained POIs to a whole building, because one footprint may contain multiple tenants. Creator overrides, multi-tenant place selection, gameplay destinations and custom exterior/interior authoring remain later stages. Extended user interaction/performance remains user-tested.
+
 ## v1.1 complete — 2026-09-13
 
 The v1.1 milestone is complete. This release includes the Creator Studio town import/reopen workflow, configurable populations and driving settings, playable town previews, real-world map-centre coordinates, mapped water/land cover, and the final bridge/tunnel corrections below.

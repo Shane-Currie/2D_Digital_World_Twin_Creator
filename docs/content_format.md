@@ -14,6 +14,7 @@ Creator Studio saves each town in a directory chosen by the creator. The GUI and
 │   └── 01_original-name.osm
 └── data/
     ├── map_features.json
+    ├── place_information.json
     ├── building_collisions.json
     └── navigation_graphs.json
 ```
@@ -25,6 +26,8 @@ Creator Studio saves each town in a directory chosen by the creator. The GUI and
 `data/navigation_graphs.json` is regenerated from OSM whenever the GUI creates or saves a project. It retains directed vehicle/pedestrian edges, source way IDs, distances, disconnected components, CBD reachability, the chosen road side and explicit inference warnings. OSM node IDs determine intersections, preventing roads that merely cross at different levels from being falsely joined. Its contract is `schemas/navigation_graphs.schema.json`. The shared playable preview consumes these graphs for cars, NPCs, NPRs and NPDs; the JSON remains data, not executable code.
 
 `data/building_collisions.json` is regenerated from the same imported OSM geometry. It converts longitude/latitude rings to local metres, retains concave outlines and multipolygon inner courtyards, records an 8-pixel-per-metre runtime scale, and assigns buildings to 256-metre streaming chunks. It also contains `water_areas` and tagged `water_crossings` with bridge/tunnel kind, width and OSM layer. The runtime uses these areas as the shared ground-traversal rule and the reusable Godot loader creates static building pieces only for nearby chunks. Its contract is `schemas/building_collisions.schema.json`. Textures never define physical collision.
+
+`data/place_information.json` contains readable records derived only from tags attached to each building footprint. Records retain stable feature IDs, selected mapped fields, source-tag provenance, the OSM way/relation reference and **© OpenStreetMap contributors** attribution. The runtime joins these records to `map_features.json` geometry for hover/click selection. Its contract is `schemas/place_information.schema.json`. Nearby points of interest are not silently promoted to whole-building facts.
 
 Water import recognises standard OSM closed ways and multipolygon tag families including `natural=water`, `water=*`, `landuse=reservoir`, `waterway=riverbank` and swimming pools, plus linear waterways and coastlines. Bounded coastal exports may omit remote members of a harbour/sea relation. The deterministic importer clips supplied outer shoreline chains to the declared OSM `<bounds>`, closes them along that export rectangle, and selects the candidate containing less mapped building/ordinary-road evidence. Such features carry `geometry_quality: clipped_osm_boundary_inference`; they are inferred only at the known export edge, not surveyed closures.
 
@@ -59,11 +62,14 @@ Use the CLI for predictable reads and writes. Pass `--json` for one machine-read
 ```text
 node tools/creator-cli.js list-towns --workspace <directory> --json
 node tools/creator-cli.js inspect-town --town <town-directory> --json
+node tools/creator-cli.js inspect-building --town <town-directory> --feature-id <OSM_ID> --json
 node tools/creator-cli.js validate-town --town <town-directory> --json
 node tools/creator-cli.js get-settings --town <town-directory> --json
 node tools/creator-cli.js set-settings --town <town-directory> --traffic-car-count 200 --cbd-car-percent 70 --json
 node tools/creator-cli.js set-settings --town <town-directory> --driving-side left --robot-count 20 --cbd-robot-percent 100 --drone-count 10 --cbd-drone-percent 90 --equalize-skin-tones --json
 ```
+
+`inspect-building` returns one generated, OSM-attributed record without operating the GUI. Use the stable feature ID displayed by Creator Studio or the playable popup.
 
 Codex can regenerate a saved town's navigation without operating the GUI:
 

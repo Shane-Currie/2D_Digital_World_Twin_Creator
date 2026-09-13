@@ -63,13 +63,20 @@ try {
   assert(fs.existsSync(path.join(imported.town_directory, 'town.json')));
   assert(fs.existsSync(path.join(imported.town_directory, 'source_osm', '01_tiny_town.osm')));
   assert(fs.existsSync(path.join(imported.town_directory, 'data', 'map_features.json')));
+  assert(fs.existsSync(path.join(imported.town_directory, 'data', 'place_information.json')));
   assert(fs.existsSync(path.join(imported.town_directory, 'data', 'building_collisions.json')));
   assert(fs.existsSync(path.join(imported.town_directory, 'game_settings.json')));
   assert(fs.existsSync(path.join(imported.town_directory, 'runtime_profile.json')));
   const importedFeatureIndex = JSON.parse(fs.readFileSync(path.join(imported.town_directory, 'data', 'map_features.json'), 'utf8'));
   const importedFeatures = importedFeatureIndex.features;
 	assert.strictEqual(importedFeatureIndex.preserves_osm_node_tags, true);
-	assert.strictEqual(importedFeatures.find(feature => feature.kind === 'road').node_tags['5'].highway, 'traffic_signals');
+  assert.strictEqual(importedFeatures.find(feature => feature.kind === 'road').node_tags['5'].highway, 'traffic_signals');
+  const importedPlaceInformation = JSON.parse(fs.readFileSync(path.join(imported.town_directory, 'data', 'place_information.json'), 'utf8'));
+  assert.strictEqual(importedPlaceInformation.kind, 'osm_building_place_information');
+  assert.strictEqual(importedPlaceInformation.source_attribution, '© OpenStreetMap contributors');
+  assert.strictEqual(importedPlaceInformation.places.length, 1);
+  assert.strictEqual(importedPlaceInformation.places[0].name, 'Fixture House');
+  assert.strictEqual(importedPlaceInformation.places[0].source_reference, 'OSM way 100');
   const importedCollisions = JSON.parse(fs.readFileSync(path.join(imported.town_directory, 'data', 'building_collisions.json'), 'utf8'));
   assert.strictEqual(importedCollisions.kind, 'building_collision_index');
   assert.strictEqual(importedCollisions.buildings.length, 1);
@@ -128,6 +135,12 @@ try {
   assert.strictEqual(validation.validation.passed, true);
   const inspected = run(['inspect-town', '--town', imported.town_directory]);
   assert.strictEqual(inspected.town.display_name, 'Tiny Test Town');
+  assert.strictEqual(inspected.place_information.statistics.building_footprints, 1);
+  assert.strictEqual(inspected.place_information.source_attribution, '© OpenStreetMap contributors');
+  const inspectedBuilding = run(['inspect-building', '--town', imported.town_directory, '--feature-id', '100']);
+  assert.strictEqual(inspectedBuilding.building.name, 'Fixture House');
+  assert.strictEqual(inspectedBuilding.building.category, 'House');
+  assert.strictEqual(inspectedBuilding.building.source_attribution, '© OpenStreetMap contributors');
   const listed = run(['list-towns', '--workspace', temporaryWorkspace]);
   assert.deepStrictEqual(listed.towns.map(town => town.id), ['tiny_test_town']);
 
@@ -138,7 +151,7 @@ try {
   assert(appText.includes('Local models are used only'));
   assert(appText.includes('_show_game_settings_page'));
   assert(appText.includes('Restore recommended settings'));
-  console.log(JSON.stringify({ passed: true, checks: 76, imported_town: imported.town_directory }));
+  console.log(JSON.stringify({ passed: true, checks: 87, imported_town: imported.town_directory }));
 } finally {
   fs.rmSync(temporaryWorkspace, { recursive: true, force: true });
 }
