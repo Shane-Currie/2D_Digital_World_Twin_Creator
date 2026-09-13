@@ -109,7 +109,7 @@ func _build_shell() -> void:
 	title_group.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header_row.add_child(title_group)
 	title_group.add_child(_label("2D Digital World Twin Creator", 25, TEXT))
-	title_group.add_child(_label("v1.1 · No-code town creation foundation", 13, MUTED))
+	title_group.add_child(_label("v1.2 · No-code digital-world development", 13, MUTED))
 	var version_badge := _label("CREATOR STUDIO", 13, ACCENT)
 	version_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	header_row.add_child(version_badge)
@@ -235,8 +235,8 @@ func _show_welcome_page() -> void:
 	))
 
 	var note := _notice_panel(
-		"First milestone",
-		"v1.1 can read OSM files, preview buildings and roads, let you draw a CBD, choose a starting point and save a portable content project in a directory you select.",
+		"v1.2 foundation",
+		"v1.2 builds on the proven v1.1 town workflow while adding the next map-independent information, gameplay and editing stages.",
 		ACCENT
 	)
 	content_area.add_child(note)

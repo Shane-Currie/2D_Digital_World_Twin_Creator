@@ -68,7 +68,7 @@ node tools/creator-cli.js set-settings --town <town-directory> --driving-side le
 Codex can regenerate a saved town's navigation without operating the GUI:
 
 ```text
-Godot_v4.7.2-stable_win64.exe --headless --path <creator-v1.1> --script res://tools/build_town_navigation.gd -- --town <town-directory>
+Godot_v4.7.2-stable_win64.exe --headless --path <creator-v1.2> --script res://tools/build_town_navigation.gd -- --town <town-directory>
 ```
 
 Do not edit copied OSM source files. Future building, interior and NPC editors will store user choices in explicit override files with stable IDs.

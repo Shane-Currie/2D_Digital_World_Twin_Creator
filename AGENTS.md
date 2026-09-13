@@ -1,6 +1,6 @@
 # Creator Studio development guidance
 
-- This project is **2D Digital World Twin Creator v1.1**. Follow the root rolling requirements log as well as this file.
+- This project is **2D Digital World Twin Creator v1.2**, based on the completed v1.1 release. Follow the root rolling requirements log as well as this file, and preserve the separate v1.1 folder and published release.
 - The interface is for creative, non-technical users. Every required workflow needs a GUI path with plain-language feedback; do not require users to edit code, JSON, environment variables or commands.
 - Creators choose the directory where their game files are saved. Do not silently redirect a valid selected directory.
 - Keep canonical projects in documented, versioned, human-readable content files. GUI and CLI operations must agree, and important state must not exist only inside the GUI.

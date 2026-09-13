@@ -637,7 +637,7 @@ func _build_hud() -> void:
 	map_coordinates.visible = false
 	canvas.add_child(map_coordinates)
 	var north := Label.new()
-	north.text = "N ↑  v1.1"
+	north.text = "N ↑  v1.2"
 	north.position = Vector2(337, 1)
 	north.add_theme_font_size_override("font_size", 8)
 	north.add_theme_color_override("font_color", Color("f3edcf"))

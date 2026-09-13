@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.2 development started — 2026-09-13
+
+- Established v1.2 from the clean, published v1.1 repository snapshot without modifying the separate v1.1 release.
+- Created a local `v1.2` development branch and updated the Godot project metadata, Creator Studio header, runtime map badge and current-version documentation.
+- Stage 1 is a compatibility baseline only. No map-generation, gameplay or content schema behaviour has deliberately changed.
+- Focused verification passed: the 72-check CLI/content suite; Creator import/setup/create workflow; OSM navigation; water/bridge/tunnel environment rules; traffic flow; and bridge/tunnel endpoint confinement. An existing Howlong v1.1 project launched through v1.2 with 330 moving road users and six collision chunks.
+- Godot emitted sandbox-only log-file and Windows root-certificate warnings during headless checks. Every invoked test returned exit code 0 with no GDScript error. Extended gameplay/performance remains user-tested.
+
 ## v1.1 complete — 2026-09-13
 
 The v1.1 milestone is complete. This release includes the Creator Studio town import/reopen workflow, configurable populations and driving settings, playable town previews, real-world map-centre coordinates, mapped water/land cover, and the final bridge/tunnel corrections below.

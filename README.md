@@ -2,9 +2,9 @@
 
 
 
-# 2D Digital World Twin Creator v1.1
+# 2D Digital World Twin Creator v1.2
 
-**v1.1 milestone complete — 13 September 2026.** See the [changelog](CHANGELOG.md) for the release summary, final bridge/tunnel fixes, verification and remaining roadmap items.
+**v1.2 development started — 13 September 2026.** This version begins from the completed v1.1 release. The separate v1.1 folder and published release remain preserved.
 
 Project Website: https://www.shanescomputing.com.au/2D_Digital_World_Twin_Creator.html
 
@@ -78,7 +78,7 @@ This remains an early simulation. Imported signal/stop locations, simple signal 
 
 ## First working milestone
 
-The current v1.1 foundation provides:
+The inherited v1.1 foundation available in v1.2 provides:
 
 - A guided Godot GUI with Home, Town Import and System Setup pages.
 - Selection of one or more raw `.osm` XML files.
@@ -131,7 +131,7 @@ See `docs/content_format.md` and `schemas/` for the stable content contract.
 
 ## Focused verification
 
-Run from this v1.1 directory:
+Run from this v1.2 directory:
 
 ```text
 node tools/tests/verify_foundation.js
