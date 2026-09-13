@@ -225,15 +225,24 @@ function isWaterArea(tags) {
     || String(tags.leisure || '').toLowerCase() === 'swimming_pool';
 }
 
+function isSurfaceParking(tags) {
+  if (String(tags.amenity || '').toLowerCase() !== 'parking') return false;
+  const parking = String(tags.parking || 'surface').toLowerCase();
+  const location = String(tags.location || '').toLowerCase();
+  return !['multi-storey', 'underground', 'rooftop', 'garage_boxes', 'sheds'].includes(parking)
+    && !['underground', 'indoor', 'rooftop'].includes(location);
+}
+
 function areaKind(tags) {
-  if (Object.hasOwn(tags, 'building')) return String(tags.building).toLowerCase() === 'roof' ? 'overhead_structure' : 'building';
-  return isWaterArea(tags) ? 'water' : (landCoverCategory(tags) ? 'land_cover' : null);
+	if (Object.hasOwn(tags, 'building')) return String(tags.building).toLowerCase() === 'roof' ? 'overhead_structure' : 'building';
+	return isWaterArea(tags) ? 'water' : (isSurfaceParking(tags) ? 'parking' : (landCoverCategory(tags) ? 'land_cover' : null));
 }
 
 function wayKind(tags, closed) {
   if (Object.hasOwn(tags, 'building')) return String(tags.building).toLowerCase() === 'roof' ? 'overhead_structure' : 'building';
   if (Object.hasOwn(tags, 'highway')) return 'road';
-  if (closed && isWaterArea(tags)) return 'water';
+	if (closed && isWaterArea(tags)) return 'water';
+	if (closed && isSurfaceParking(tags)) return 'parking';
   if (closed && landCoverCategory(tags)) return 'land_cover';
   if (['river', 'stream', 'canal', 'drain', 'ditch'].includes(String(tags.waterway || '').toLowerCase())) return 'waterway';
   if (String(tags.natural || '').toLowerCase() === 'coastline') return 'coastline';
@@ -417,7 +426,7 @@ function parseOsmFiles(filePaths) {
 
   const features = [];
   let west = Infinity, south = Infinity, east = -Infinity, north = -Infinity;
-  let buildings = 0, roads = 0, waterAreas = 0, waterways = 0, overheadStructures = 0;
+  let buildings = 0, roads = 0, waterAreas = 0, waterways = 0, overheadStructures = 0, parkingAreas = 0;
   let landCoverAreas = 0;
   let bridgeRoads = 0, tunnelRoads = 0, incompleteWaterRelations = 0, inferredClippedWaterAreas = 0, inferredCoastalWaterAreas = 0, unresolvedWaterRelations = 0;
   const warnings = [];
@@ -483,6 +492,7 @@ function parseOsmFiles(filePaths) {
       if (kind === 'building') buildings++;
       else if (kind === 'overhead_structure') overheadStructures++;
       else if (kind === 'water') waterAreas++;
+	  else if (kind === 'parking') parkingAreas++;
       else if (kind === 'land_cover') landCoverAreas++;
       for (const [longitude, latitude] of outer.points) {
         west = Math.min(west, longitude); east = Math.max(east, longitude);
@@ -504,13 +514,13 @@ function parseOsmFiles(filePaths) {
     const closed = way.nodeIds.length >= 4 && way.nodeIds[0] === way.nodeIds.at(-1);
     const kind = wayKind(way.tags, closed);
     if (!kind) continue;
-    if (['building', 'overhead_structure', 'water', 'land_cover'].includes(kind) && relationMemberWays.has(`${way.id}:${kind}${kind === 'land_cover' ? ':' + landCoverCategory(way.tags) : ''}`)) continue;
+	if (['building', 'overhead_structure', 'water', 'parking', 'land_cover'].includes(kind) && relationMemberWays.has(`${way.id}:${kind}${kind === 'land_cover' ? ':' + landCoverCategory(way.tags) : ''}`)) continue;
     if (kind === 'land_cover' && way.nodeIds.some(id => !nodes.has(id))) {
       warnings.push(`Land cover way ${way.id} has missing boundary points and was omitted.`);
       continue;
     }
     const points = way.nodeIds.map(id => nodes.get(id)).filter(Boolean);
-    if (points.length < (['building', 'overhead_structure', 'water'].includes(kind) ? 3 : 2)) continue;
+	if (points.length < (['building', 'overhead_structure', 'water', 'parking'].includes(kind) ? 3 : 2)) continue;
     for (const [longitude, latitude] of points) {
       west = Math.min(west, longitude); east = Math.max(east, longitude);
       south = Math.min(south, latitude); north = Math.max(north, latitude);
@@ -518,6 +528,7 @@ function parseOsmFiles(filePaths) {
     if (kind === 'building') buildings++;
     else if (kind === 'overhead_structure') overheadStructures++;
     else if (kind === 'water') waterAreas++;
+	else if (kind === 'parking') parkingAreas++;
     else if (kind === 'land_cover') landCoverAreas++;
     else if (['waterway', 'coastline'].includes(kind)) waterways++;
     else if (kind === 'road') {
@@ -535,6 +546,7 @@ function parseOsmFiles(filePaths) {
     statistics: {
       source_files: filePaths.length, osm_nodes: nodes.size, osm_ways: ways.size, osm_relations: relations.size,
       buildings, roads, water_areas: waterAreas, linear_waterways_and_coastlines: waterways,
+	  parking_areas: parkingAreas,
       land_cover_areas: landCoverAreas,
       overhead_structures: overheadStructures, bridge_roads: bridgeRoads, tunnel_roads: tunnelRoads,
       incomplete_water_relations: incompleteWaterRelations, inferred_clipped_water_areas: inferredClippedWaterAreas,

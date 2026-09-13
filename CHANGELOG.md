@@ -318,3 +318,18 @@ This closes the v1.1 scope, not the full product roadmap. Advanced editors, the 
 - Extended the rendered crossing regression to check multiple inactive land bridges at several points, unchanged player crossing state and restoration after closing the overview. All assertions passed, alongside its existing surface/tunnel overlap checks.
 - Reproduced the reported area in the user's Rocks project near latitude -33.860570, longitude 151.205987 at 15x map zoom. Visually inspected `tools/tests/output/bridge_map_complete_user.png`: the highway lanes continue across the previously missing sections. Added optional geographic capture arguments for repeatable map-view checks; they do not modify saved starts or map data.
 - No script errors in final checks; known host log/certificate-store warnings remain. This was a focused rendering correction, not extended driving/performance testing. Restart **Play test**; no project rebuild is required.
+
+## 2026-09-14 — Metre-scaled roads, parking and footpaths
+
+- Replaced fixed visual road widths with one shared OSM-aware dimension source used by rendering, spawn safety, road/building clearance and bridge/tunnel corridors. Explicit `width`/`est_width` and lane counts take priority; documented class defaults handle sparse maps without an LLM or town-specific rules. The 17×40-pixel wagon now compares against road geometry at the shared 8-pixels-per-metre scale.
+- Imported ground-level `amenity=parking` polygons as dedicated surface features. Paved areas receive conservative 2.6-metre bay spacing and 5.2-metre bay-depth guides where geometry permits; grass, gravel and unpaved car parks keep their mapped surface appearance. Underground, rooftop and multi-storey car parks are not painted on the ground.
+- Preserved explicit OSM footways and added metre-scaled roadside footpaths from sidewalk tags. When sidewalk data is absent on ordinary urban roads, a documented deterministic default keeps sparse maps usable; `sidewalk=no`, `none` and `separate` are respected.
+- Ground-solid building footprints remain authoritative over road, parking and footpath artwork. Parking guides intersecting buildings are omitted, and the renderer's surface lookup masks building interiors. A collision-runtime regression still blocks both the player and car on the exact OSM polygon.
+- Corrected the first rendered review after user feedback: OSM ways are now painted in global kerb, asphalt and marking passes so separate ways blend at junctions instead of drawing internal kerbs. Paved parking uses the same asphalt and sits below access roads, removing the mismatched parking entrance seam.
+
+### Focused verification
+
+- Synthetic scale/surface regression and the 87-check Node/content suite passed. Map geometry, Creator UI, exact building collision and 330-agent runtime traffic-flow checks also passed.
+- Four independent OSM exports passed without map-specific configuration: Howlong (210 roads, 6 car parks), Gold Coast (1,446 roads, 235 car parks), Sydney Harbour (572 roads, 22 car parks) and Kingston ACT (519 roads, 92 car parks). Generated sidewalk sides and bay guides were bounded and solid-building samples remained masked.
+- Isolated Wodonga, Gold Coast and Kingston runtime copies were rebuilt and launched for graphical review; the user's projects and original OSM files were not changed. Actual corrected captures are in `tools/tests/output/stage4_transport_visuals/`.
+- These are focused generation, rendering, collision and startup checks. Inferred footpaths and bay guides are stylised defaults rather than surveyed layouts, and extended driving/pedestrian/performance testing remains with the user. Full rules and commands are in `docs/scaled_transport_surfaces.md`.

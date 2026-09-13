@@ -103,10 +103,19 @@ func _add_building_body(parent: Node2D, building: Dictionary) -> void:
 
 
 func _convex_pieces_with_holes(outer_value: PackedVector2Array, holes: Array[PackedVector2Array]) -> Array[PackedVector2Array]:
-	if holes.is_empty() and outer_value.size() <= 48:
-		var ordinary_pieces := Geometry2D.decompose_polygon_in_convex(outer_value)
-		if not ordinary_pieces.is_empty():
-			return ordinary_pieces
+	if holes.is_empty():
+		# Triangles are always convex and avoid the engine-level error emitted by
+		# direct convex decomposition for a few otherwise drawable OSM outlines.
+		var triangle_indices := Geometry2D.triangulate_polygon(outer_value)
+		var triangles: Array[PackedVector2Array] = []
+		for index in range(0, triangle_indices.size(), 3):
+			triangles.append(PackedVector2Array([
+				outer_value[triangle_indices[index]],
+				outer_value[triangle_indices[index + 1]],
+				outer_value[triangle_indices[index + 2]]
+			]))
+		if not triangles.is_empty():
+			return triangles
 	var navigation_polygon := NavigationPolygon.new()
 	navigation_polygon.agent_radius = 0.0
 	navigation_polygon.cell_size = 0.05

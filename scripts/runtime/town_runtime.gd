@@ -255,7 +255,7 @@ func _verify_runtime() -> void:
 	assert(collisions.loaded_chunks.size() > 0)
 	assert(get_window().content_scale_size == Vector2i(384, 240))
 	assert(hud_label.position == Vector2(8, 3) and hud_status.position == Vector2(8, 212))
-	assert(renderer.visual_style_version == "v1.3-generic-1")
+	assert(renderer.visual_style_version == "v1.3-scaled-transport-2")
 	assert(renderer.water_areas.size() == collision_data.get("water_areas", []).size())
 	assert(renderer.street_label_count > 0, "The imported test map should expose OSM street names.")
 	assert(renderer._building_style({"building": "retail"}, "shop") == "commercial")
@@ -435,6 +435,16 @@ func _capture_runtime(path_value: String) -> void:
 		capture_camera_locked = true
 		camera.position_smoothing_enabled = false
 		camera.position = player.position
+	elif capture_focus == "transport":
+		var preview: Dictionary = renderer.transport_preview_area()
+		assert(not preview.is_empty(), "The capture map needs a mapped surface car park with room for inferred bay guides.")
+		capture_camera_locked = true
+		camera.position_smoothing_enabled = false
+		camera.position = preview.position
+		camera.zoom = Vector2.ONE * 0.65
+		wagon.position = preview.position
+		wagon.rotation = Vector2(preview.direction).angle() + PI * 0.5
+		print("SCALED TRANSPORT CAPTURE: parking=%s bay guides=%d" % [str(preview.id), int(preview.stripe_count)])
 	elif capture_focus == "building-info":
 		var record: Dictionary = building_information.first_named_record()
 		assert(not record.is_empty(), "The capture map needs at least one imported building.")
@@ -753,7 +763,8 @@ func _build_hud() -> void:
 
 
 func _update_building_popup(covered_view: bool) -> void:
-	if building_popup == null or building_information == null or covered_view or map_dragging:
+	var transport_capture := capture_camera_locked and _argument_value("--capture-focus") == "transport"
+	if building_popup == null or building_information == null or covered_view or map_dragging or transport_capture:
 		if building_popup != null:
 			building_popup.hide()
 		return

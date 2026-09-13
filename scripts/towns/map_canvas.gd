@@ -15,6 +15,9 @@ enum EditMode { INSPECT, DRAW_CBD, SET_START }
 const MAP_BACKGROUND := Color("#17231f")
 const MAP_GRID := Color("#263b34")
 const ROAD_COLOUR := Color("#89938f")
+const FOOTPATH_COLOUR := Color("#bcbcaf")
+const PARKING_COLOUR := Color("#6d7778")
+const PARKING_OUTLINE := Color("#c9c8ae")
 const BRIDGE_COLOUR := Color("#d7d1ba")
 const TUNNEL_COLOUR := Color("#46524f")
 const WATER_COLOUR := Color("#397f9b")
@@ -170,11 +173,21 @@ func _draw() -> void:
 			draw_polyline(_closed_polygon(water_polygon), WATER_OUTLINE, 1.5, true)
 
 	for feature in features:
+		if feature.kind != "parking":
+			continue
+		var parking_polygon := _screen_polygon(feature.points)
+		if parking_polygon.size() >= 3:
+			_draw_valid_fill(parking_polygon, PARKING_COLOUR)
+			draw_polyline(_closed_polygon(parking_polygon), PARKING_OUTLINE, 1.0, true)
+
+	for feature in features:
 		if feature.kind != "road":
 			continue
 		var road_points := _screen_polygon(feature.points)
 		if road_points.size() >= 2:
-			var road_colour := TUNNEL_COLOUR if _tag_enabled(feature.tags.get("tunnel", "")) else (BRIDGE_COLOUR if _tag_enabled(feature.tags.get("bridge", "")) else ROAD_COLOUR)
+			var road_kind := str(feature.tags.get("highway", "")).to_lower()
+			var walkway := road_kind in ["footway", "path", "pedestrian", "cycleway", "steps", "bridleway"]
+			var road_colour := TUNNEL_COLOUR if _tag_enabled(feature.tags.get("tunnel", "")) else (BRIDGE_COLOUR if _tag_enabled(feature.tags.get("bridge", "")) else (FOOTPATH_COLOUR if walkway else ROAD_COLOUR))
 			draw_polyline(road_points, road_colour, _road_width(feature.tags), true)
 
 	for feature in features:

@@ -11,6 +11,7 @@ const cli = path.join(root, 'tools', 'creator-cli.js');
 const { distanceToFixedFootprints, parseOsmFiles, buildBuildingCollisions } = require(cli);
 const fixture = path.join(root, 'tools', 'tests', 'fixtures', 'tiny_town.osm');
 const waterFixture = path.join(root, 'tools', 'tests', 'fixtures', 'water_crossings.osm');
+const transportFixture = path.join(root, 'tools', 'tests', 'fixtures', 'surface_transport.osm');
 const temporaryWorkspace = fs.mkdtempSync(path.join(os.tmpdir(), 'world-twin-creator-'));
 
 function run(argumentsList) {
@@ -20,6 +21,10 @@ function run(argumentsList) {
 }
 
 try {
+  const transportMap = parseOsmFiles([transportFixture]);
+  assert.strictEqual(transportMap.statistics.parking_areas, 1);
+  assert.strictEqual(transportMap.features.filter(feature => feature.kind === 'parking').length, 1);
+
   const environmental = parseOsmFiles([waterFixture]);
   assert.strictEqual(environmental.statistics.water_areas, 1);
   assert.strictEqual(environmental.statistics.bridge_roads, 1);

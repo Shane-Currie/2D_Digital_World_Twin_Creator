@@ -10,6 +10,7 @@ const METRES_PER_LONGITUDE_DEGREE := 111320.0
 const GRID_SIZE_METRES := 100.0
 const MAX_REPORTED_CLEARANCE_CONFLICTS := 200
 const MAX_REPORTED_VERTICAL_ROADS := 200
+const RoadDimensionsScript = preload("res://scripts/roads/road_dimensions.gd")
 
 
 func analyse(features: Array) -> Dictionary:
@@ -171,17 +172,7 @@ func road_vertical_context(tags: Dictionary) -> String:
 
 
 func road_half_width_metres(tags: Dictionary) -> float:
-	var explicit_width := str(tags.get("width", ""))
-	if explicit_width.is_valid_float() and explicit_width.to_float() > 0.5:
-		return clampf(explicit_width.to_float() * 0.5, 1.5, 20.0)
-	var highway := str(tags.get("highway", "")).to_lower()
-	if highway in ["motorway", "trunk", "primary"]:
-		return 4.5
-	if highway in ["secondary", "tertiary"]:
-		return 3.75
-	if highway in ["footway", "path", "pedestrian", "cycleway", "steps"]:
-		return 1.5
-	return 3.25
+	return RoadDimensionsScript.half_width_metres(tags)
 
 
 func _potential_navigation_route(tags: Dictionary) -> bool:

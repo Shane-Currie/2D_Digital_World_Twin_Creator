@@ -2,6 +2,7 @@ class_name RuntimeWorldRenderer
 extends Node2D
 
 const MapGeometryValidatorScript = preload("res://scripts/validation/map_geometry_validator.gd")
+const RoadDimensionsScript = preload("res://scripts/roads/road_dimensions.gd")
 
 const ProjectionScript = preload("res://scripts/runtime/town_projection.gd")
 const LandCoverScript = preload("res://scripts/land_cover/land_cover.gd")
@@ -19,6 +20,9 @@ const ROAD_EDGE := Color("#d0cfb2")
 const ROAD_LINE := Color("#e8e1bd")
 const FOOTPATH := Color("#bcbcaf")
 const FOOTPATH_EDGE := Color("#e0dcc2")
+const PARKING := Color("#747e7e")
+const PARKING_EDGE := Color("#c9c8ae")
+const PARKING_LINE := Color("#ded9ba")
 const BUILDING_EDGE := Color("#394f50")
 const WINDOW := Color("#315b78")
 const WINDOW_LIGHT := Color("#a9d8e6")
@@ -36,7 +40,7 @@ const BUILDING_PALETTES := {
 	"tall": {"roof": Color("#61798a"), "light": Color("#91a8b2"), "dark": Color("#455e70"), "facade": Color("#a9bcc0")}
 }
 
-var visual_style_version := "v1.3-generic-1"
+var visual_style_version := "v1.3-scaled-transport-2"
 var tunnel_view_only := false
 var underpass_path_index := -1
 var active_land_bridge_id := ""
@@ -48,6 +52,10 @@ var pixels_per_metre := 8.0
 var world_bounds := Rect2()
 var road_segments: Array[Dictionary] = []
 var road_paths: Array[Dictionary] = []
+var sidewalk_paths: Array[Dictionary] = []
+var parking_areas: Array[Dictionary] = []
+var ground_buildings: Array[Dictionary] = []
+var ground_building_cells: Dictionary = {}
 var water_areas: Array[Dictionary] = []
 var water_cells: Dictionary = {}
 var water_crossing_segments: Array[Dictionary] = []
@@ -57,6 +65,9 @@ var street_label_count := 0
 var last_label_camera_zoom := -1.0
 var last_label_detail := -1.0
 var last_label_map_open := false
+var inferred_sidewalk_count := 0
+var explicit_footpath_count := 0
+var generated_parking_bay_count := 0
 
 
 func setup(feature_values: Array, collision_data: Dictionary, map_bounds: Dictionary) -> void:
@@ -67,6 +78,7 @@ func setup(feature_values: Array, collision_data: Dictionary, map_bounds: Dictio
 	var south_east := _world(Vector2(float(map_bounds.east), float(map_bounds.south)))
 	world_bounds = Rect2(north_west, south_east - north_west).abs()
 	_build_environment(collision_data)
+	_build_surface_areas()
 	_build_roads()
 	land_cover.setup(features, func(value: Variant) -> Vector2: return _world(ProjectionScript.value_to_location(value)), world_bounds)
 	queue_redraw()
@@ -276,10 +288,7 @@ func _draw() -> void:
 		return
 	if underpass_path_index >= 0 and underpass_path_index < road_paths.size():
 		var path: Dictionary = road_paths[underpass_path_index]
-		var width := float(path.half_width) * 2.0
-		draw_polyline(path.points, ROAD_EDGE, width + 6.0, true)
-		draw_polyline(path.points, FOOTPATH if path.walkway else ROAD, width, true)
-		if path.markings: _draw_road_markings(path.points, path.oneway)
+		_draw_transport_path(path)
 		return
 	draw_rect(world_bounds.grow(80.0), GRASS, true)
 	for area in land_cover.areas:
@@ -289,20 +298,23 @@ func _draw() -> void:
 	# Underground decks belong only to tunnel view; drawing them on top of grass
 	# produces a dark cut through the visible town and apparent gaps in bridges.
 	_draw_water()
+	_draw_parking_areas()
 	# Ground roads are painted first. Explicit bridge decks are painted in a
 	# second pass so a valid elevated road remains visible over a lower road.
+	_draw_transport_paths(sidewalk_paths)
+	var ground_vehicle_paths: Array[Dictionary] = []
 	for path in road_paths:
-		if bool(path.tunnel) or bool(path.bridge):
+		if bool(path.tunnel) or bool(path.bridge) or bool(path.walkway):
 			continue
-		var points: PackedVector2Array = path.points
-		var width := float(path.half_width) * 2.0
-		var walkway: bool = bool(path.walkway)
-		var path_color := FOOTPATH if walkway else ROAD
-		var edge_color := FOOTPATH_EDGE if walkway else ROAD_EDGE
-		draw_polyline(points, edge_color, width + (3.0 if walkway else 6.0), true)
-		draw_polyline(points, path_color, width, true)
-		if bool(path.markings):
-			_draw_road_markings(points, bool(path.oneway))
+		ground_vehicle_paths.append(path)
+	_draw_transport_paths(ground_vehicle_paths)
+	# Separately mapped footways and crossings sit above ordinary road paint.
+	var explicit_walkways: Array[Dictionary] = []
+	for path in road_paths:
+		if bool(path.tunnel) or bool(path.bridge) or not bool(path.walkway):
+			continue
+		explicit_walkways.append(path)
+	_draw_transport_paths(explicit_walkways)
 	for feature_value in features:
 		var feature: Dictionary = feature_value
 		if str(feature.get("kind", "")) != "building":
@@ -346,7 +358,7 @@ func _draw() -> void:
 		var bridge_width := float(corridor.half_width) * 2.0
 		draw_polyline(bridge_points, BRIDGE_EDGE, bridge_width + 7.0, true)
 		draw_polyline(bridge_points, ROAD, bridge_width, true)
-		_draw_road_markings(bridge_points, false)
+		_draw_road_markings(bridge_points, false, 2, bridge_width)
 	_draw_crossing_portals()
 
 
@@ -393,7 +405,7 @@ func _draw_tunnel_view() -> void:
 		var width := float(corridor.half_width) * 2.0
 		draw_polyline(points, ROAD_EDGE, width + 4.0, true)
 		draw_polyline(points, TUNNEL_ROAD, width, true)
-		_draw_road_markings(points, false)
+		_draw_road_markings(points, false, 2, width)
 	_draw_crossing_portals("tunnel")
 
 
@@ -585,6 +597,232 @@ func _draw_roof_detail(polygon: PackedVector2Array, palette: Dictionary, seed: i
 		draw_rect(Rect2(centre - Vector2(1.5, 1.5), Vector2(3.0, 3.0)), TRIM.darkened(0.12), true)
 
 
+func surface_style_summary() -> Dictionary:
+	var measured_roads := 0
+	var lane_scaled_roads := 0
+	var default_width_roads := 0
+	var minimum_vehicle_width := INF
+	var maximum_vehicle_width := 0.0
+	for path in road_paths:
+		if bool(path.walkway):
+			continue
+		var width_metres := float(path.half_width) * 2.0 / pixels_per_metre
+		minimum_vehicle_width = minf(minimum_vehicle_width, width_metres)
+		maximum_vehicle_width = maxf(maximum_vehicle_width, width_metres)
+		match str(path.width_source):
+			"osm_width", "osm_estimated_width": measured_roads += 1
+			"osm_lanes": lane_scaled_roads += 1
+			_: default_width_roads += 1
+	return {
+		"vehicle_roads": measured_roads + lane_scaled_roads + default_width_roads,
+		"explicit_width_roads": measured_roads,
+		"lane_scaled_roads": lane_scaled_roads,
+		"default_width_roads": default_width_roads,
+		"minimum_vehicle_road_width_metres": 0.0 if minimum_vehicle_width == INF else minimum_vehicle_width,
+		"maximum_vehicle_road_width_metres": maximum_vehicle_width,
+		"explicit_footpaths": explicit_footpath_count,
+		"generated_sidewalk_sides": sidewalk_paths.size(),
+		"inferred_sidewalk_sides": inferred_sidewalk_count,
+		"surface_parking_areas": parking_areas.size(),
+		"inferred_parking_bay_lines": generated_parking_bay_count,
+		"transport_blending_mode": "layered_edges_fills_markings",
+		"parking_matches_road_asphalt": PARKING == ROAD,
+		"pixels_per_metre": pixels_per_metre,
+		"player_vehicle_metres": {"width": 17.0 / pixels_per_metre, "length": 40.0 / pixels_per_metre}
+	}
+
+
+func transport_preview_area() -> Dictionary:
+	var selected: Dictionary = {}
+	var best_score := -1.0
+	for area in parking_areas:
+		var bounds: Rect2 = area.bounds
+		if str(area.surface) in ["grass", "grass_paver", "gravel", "fine_gravel", "unpaved", "dirt", "ground"] or area.stripes.is_empty():
+			continue
+		# A medium-sized car park gives a useful review frame: enough bays and
+		# connecting streets to judge scale without shrinking the car to a dot.
+		var score := 100000.0 - absf(float(area.stripes.size()) - 40.0) * 500.0 - absf(maxf(bounds.size.x, bounds.size.y) - 500.0)
+		if score <= best_score:
+			continue
+		best_score = score
+		var first_line: Dictionary = area.stripes[0]
+		var preview_position: Vector2 = first_line.start.lerp(first_line.end, 0.52)
+		if area.stripes.size() >= 3:
+			var adjacent_line: Dictionary = area.stripes[2]
+			preview_position = preview_position.lerp(adjacent_line.start.lerp(adjacent_line.end, 0.52), 0.5)
+		selected = {
+			"id": str(area.id), "bounds": bounds, "position": preview_position,
+			"direction": first_line.start.direction_to(first_line.end), "stripe_count": area.stripes.size()
+		}
+	return selected
+
+
+func surface_kind_at(world_position: Vector2) -> String:
+	# Building collision is authoritative. Drawing buildings after all transport
+	# paint provides the same mask visually, including courtyard holes.
+	if _inside_ground_building(world_position):
+		return ""
+	for segment in road_segments:
+		var closest := Geometry2D.get_closest_point_to_segment(world_position, segment.a, segment.b)
+		if closest.distance_to(world_position) <= float(segment.half_width):
+			return "footpath" if bool(segment.walkway) else "road"
+	for sidewalk in sidewalk_paths:
+		var points: PackedVector2Array = sidewalk.points
+		for index in range(points.size() - 1):
+			var closest := Geometry2D.get_closest_point_to_segment(world_position, points[index], points[index + 1])
+			if closest.distance_to(world_position) <= float(sidewalk.half_width):
+				return "footpath"
+	for area in parking_areas:
+		if _inside_area(world_position, area.outer, area.holes):
+			return "parking"
+	return ""
+
+
+func _draw_transport_path(path: Dictionary) -> void:
+	_draw_transport_paths([path])
+
+
+func _draw_transport_paths(paths: Array) -> void:
+	# OSM commonly splits one physical street at every junction. Painting every
+	# way to completion leaves its kerb crossing the next way. Batch passes make
+	# the asphalt one continuous surface, then place markings over the blend.
+	for path_value in paths:
+		var path: Dictionary = path_value
+		var points: PackedVector2Array = path.points
+		if points.size() < 2:
+			continue
+		var width := float(path.half_width) * 2.0
+		var walkway := bool(path.walkway)
+		var crossing := bool(path.get("crossing", false))
+		var edge_extra := (0.25 if walkway else 0.60) * pixels_per_metre
+		draw_polyline(points, Color("#f0ead1") if crossing else (FOOTPATH_EDGE if walkway else ROAD_EDGE), width + edge_extra, true)
+	for path_value in paths:
+		var path: Dictionary = path_value
+		var points: PackedVector2Array = path.points
+		if points.size() < 2:
+			continue
+		var walkway := bool(path.walkway)
+		var crossing := bool(path.get("crossing", false))
+		draw_polyline(points, Color("#d6d3bd") if crossing else (FOOTPATH if walkway else ROAD), float(path.half_width) * 2.0, true)
+	for path_value in paths:
+		var path: Dictionary = path_value
+		if bool(path.markings):
+			_draw_road_markings(path.points, bool(path.oneway), int(path.lanes), float(path.half_width) * 2.0)
+
+
+func _draw_parking_areas() -> void:
+	for area in parking_areas:
+		var surface_colour := GRASS_DARK if str(area.surface) in ["grass", "grass_paver"] else (Color("#8c8170") if str(area.surface) in ["gravel", "fine_gravel", "unpaved", "dirt", "ground"] else PARKING)
+		for piece in area.pieces:
+			_draw_polygon_safely(piece, surface_colour)
+		draw_polyline(_closed(area.outer), PARKING_EDGE, maxf(1.0, 0.18 * pixels_per_metre), true)
+		if str(area.surface) not in ["grass", "grass_paver", "gravel", "fine_gravel", "unpaved", "dirt", "ground"]:
+			for line in area.stripes:
+				draw_line(line.start, line.end, PARKING_LINE, maxf(1.0, 0.14 * pixels_per_metre), true)
+
+
+func _parking_stripes(outer: PackedVector2Array, holes: Array[PackedVector2Array]) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var longest := 0.0
+	var tangent := Vector2.RIGHT
+	for index in outer.size():
+		var direction := outer[index].direction_to(outer[(index + 1) % outer.size()])
+		var length := outer[index].distance_to(outer[(index + 1) % outer.size()])
+		if length > longest:
+			longest = length
+			tangent = direction
+	if longest < 8.0 * pixels_per_metre:
+		return result
+	var normal := Vector2(-tangent.y, tangent.x)
+	var minimum_t := INF
+	var maximum_t := -INF
+	var minimum_n := INF
+	var maximum_n := -INF
+	for point in outer:
+		minimum_t = minf(minimum_t, point.dot(tangent))
+		maximum_t = maxf(maximum_t, point.dot(tangent))
+		minimum_n = minf(minimum_n, point.dot(normal))
+		maximum_n = maxf(maximum_n, point.dot(normal))
+	var area_depth := maximum_n - minimum_n
+	if area_depth < 7.0 * pixels_per_metre:
+		return result
+	var bay_spacing := 2.6 * pixels_per_metre
+	var bay_depth := minf(5.2 * pixels_per_metre, area_depth * 0.42)
+	var edge_margin := 0.6 * pixels_per_metre
+	var t := minimum_t + bay_spacing
+	while t < maximum_t - bay_spacing and result.size() < 600:
+		for from_low_side in [true, false]:
+			var outside_n := minimum_n + edge_margin if from_low_side else maximum_n - edge_margin
+			var inside_n := outside_n + bay_depth if from_low_side else outside_n - bay_depth
+			var first := tangent * t + normal * outside_n
+			var second := tangent * t + normal * inside_n
+			if _inside_area(first, outer, holes) and _inside_area(second, outer, holes) and _inside_area(first.lerp(second, 0.5), outer, holes) and _segment_clear_of_buildings(first, second):
+				result.append({"start": first, "end": second})
+		t += bay_spacing
+	return result
+
+
+func _inside_area(point: Vector2, outer: PackedVector2Array, holes: Array) -> bool:
+	if not Geometry2D.is_point_in_polygon(point, outer):
+		return false
+	for hole in holes:
+		if Geometry2D.is_point_in_polygon(point, hole):
+			return false
+	return true
+
+
+func _inside_ground_building(point: Vector2) -> bool:
+	var cell := Vector2i(floori(point.x / 512.0), floori(point.y / 512.0))
+	for building_index in ground_building_cells.get(cell, []):
+		var building: Dictionary = ground_buildings[building_index]
+		if building.bounds.has_point(point) and _inside_area(point, building.outer, building.holes):
+			return true
+	return false
+
+
+func _segment_clear_of_buildings(first: Vector2, second: Vector2) -> bool:
+	var bounds := Rect2(first, second - first).abs()
+	var low := Vector2i(floori(bounds.position.x / 512.0), floori(bounds.position.y / 512.0))
+	var high := Vector2i(floori(bounds.end.x / 512.0), floori(bounds.end.y / 512.0))
+	var candidates: Dictionary = {}
+	for cell_y in range(low.y, high.y + 1):
+		for cell_x in range(low.x, high.x + 1):
+			for building_index in ground_building_cells.get(Vector2i(cell_x, cell_y), []):
+				candidates[building_index] = true
+	for building_index in candidates:
+		var building: Dictionary = ground_buildings[building_index]
+		if not building.bounds.intersects(bounds, true):
+			continue
+		for sample_index in range(7):
+			if _inside_area(first.lerp(second, float(sample_index) / 6.0), building.outer, building.holes):
+				return false
+	return true
+
+
+func _index_ground_building(building_index: int) -> void:
+	var bounds: Rect2 = ground_buildings[building_index].bounds
+	var low := Vector2i(floori(bounds.position.x / 512.0), floori(bounds.position.y / 512.0))
+	var high := Vector2i(floori(bounds.end.x / 512.0), floori(bounds.end.y / 512.0))
+	for cell_y in range(low.y, high.y + 1):
+		for cell_x in range(low.x, high.x + 1):
+			ground_building_cells.get_or_add(Vector2i(cell_x, cell_y), []).append(building_index)
+
+
+func _offset_path(points: PackedVector2Array, signed_distance: float) -> PackedVector2Array:
+	var result := PackedVector2Array()
+	for index in points.size():
+		var previous_direction := points[maxi(0, index - 1)].direction_to(points[index]) if index > 0 else points[index].direction_to(points[index + 1])
+		var next_direction := points[index].direction_to(points[mini(points.size() - 1, index + 1)]) if index + 1 < points.size() else previous_direction
+		var previous_normal := Vector2(-previous_direction.y, previous_direction.x)
+		var next_normal := Vector2(-next_direction.y, next_direction.x)
+		var average_normal := (previous_normal + next_normal).normalized()
+		if average_normal == Vector2.ZERO:
+			average_normal = next_normal
+		var denominator := maxf(0.35, absf(average_normal.dot(next_normal)))
+		result.append(points[index] + average_normal * signed_distance / denominator)
+	return result
+
+
 func _draw_polygon_safely(polygon: PackedVector2Array, color: Color) -> void:
 	# OSM can contain valid building outlines that are too complex or imperfect for
 	# Godot's direct polygon draw call. Drawing verified triangles prevents one
@@ -624,10 +862,60 @@ func _draw_grass_stalks() -> void:
 		x += spacing
 
 
+func _build_surface_areas() -> void:
+	parking_areas.clear()
+	ground_buildings.clear()
+	ground_building_cells.clear()
+	generated_parking_bay_count = 0
+	for feature_value in features:
+		var feature: Dictionary = feature_value
+		if str(feature.get("kind", "")) not in ["building", "fixed_footprint"] or not MapGeometryValidatorScript.building_blocks_ground(feature):
+			continue
+		var building_outer := _polygon(feature.get("points", []))
+		if building_outer.size() < 3:
+			continue
+		var building_holes: Array[PackedVector2Array] = []
+		for hole_value in feature.get("holes", []):
+			var building_hole := _polygon(hole_value)
+			if building_hole.size() >= 3:
+				building_holes.append(building_hole)
+		ground_buildings.append({"outer": building_outer, "holes": building_holes, "bounds": _points_bounds(building_outer)})
+		_index_ground_building(ground_buildings.size() - 1)
+	for feature_value in features:
+		var feature: Dictionary = feature_value
+		if str(feature.get("kind", "")) != "parking":
+			continue
+		var outer := _polygon(feature.get("points", []))
+		if outer.size() < 3:
+			continue
+		var holes: Array[PackedVector2Array] = []
+		for hole_value in feature.get("holes", []):
+			var hole := _polygon(hole_value)
+			if hole.size() >= 3:
+				holes.append(hole)
+		var stripes := _parking_stripes(outer, holes)
+		var remaining_stripes := maxi(0, 20000 - generated_parking_bay_count)
+		if stripes.size() > remaining_stripes:
+			stripes = stripes.slice(0, remaining_stripes)
+		generated_parking_bay_count += stripes.size()
+		parking_areas.append({
+			"id": str(feature.get("id", "")),
+			"surface": str(feature.get("tags", {}).get("surface", "asphalt")).to_lower(),
+			"outer": outer,
+			"holes": holes,
+			"pieces": LandCoverScript.pieces(outer, holes),
+			"bounds": _points_bounds(outer),
+			"stripes": stripes
+		})
+
+
 func _build_roads() -> void:
 	road_segments.clear()
 	road_paths.clear()
+	sidewalk_paths.clear()
 	named_road_cells.clear()
+	inferred_sidewalk_count = 0
+	explicit_footpath_count = 0
 	var label_candidates: Array = []
 	for feature_value in features:
 		var feature: Dictionary = feature_value
@@ -637,9 +925,11 @@ func _build_roads() -> void:
 		if points.size() < 2:
 			continue
 		var tags: Dictionary = feature.get("tags", {})
-		var half_width := _road_half_width(tags)
-		var road_kind := str(tags.get("highway", ""))
-		var walkway := road_kind in ["footway", "path", "pedestrian", "cycleway", "steps"]
+		var half_width := RoadDimensionsScript.half_width_metres(tags) * pixels_per_metre
+		var road_kind := str(tags.get("highway", "")).to_lower()
+		var walkway := RoadDimensionsScript.is_walkway(tags)
+		if walkway:
+			explicit_footpath_count += 1
 		var oneway_value := str(tags.get("oneway", "")).to_lower()
 		var bridge := _tag_enabled(tags.get("bridge", ""))
 		var tunnel := _tag_enabled(tags.get("tunnel", ""))
@@ -648,12 +938,31 @@ func _build_roads() -> void:
 			"points": points,
 			"half_width": half_width,
 			"walkway": walkway,
+			"crossing": walkway and (str(tags.get("footway", "")).to_lower() == "crossing" or not str(tags.get("crossing", "")).is_empty()),
 			"markings": not walkway and road_kind in ["motorway", "trunk", "primary", "secondary", "tertiary"],
+			"lanes": RoadDimensionsScript.lane_count(tags),
+			"width_source": RoadDimensionsScript.width_source(tags),
 			"oneway": oneway_value in ["yes", "true", "1", "-1"],
 			"bridge": bridge,
 			"tunnel": tunnel,
 			"layer": int(str(tags.get("layer", "0"))) if str(tags.get("layer", "0")).is_valid_int() else 0
 		})
+		if not walkway and not bridge and not tunnel:
+			var sidewalk_width := RoadDimensionsScript.sidewalk_width_metres(tags) * pixels_per_metre
+			var sidewalk_offset := half_width + 0.35 * pixels_per_metre + sidewalk_width * 0.5
+			var has_explicit_sidewalk_tag := tags.has("sidewalk") or tags.has("sidewalk:left") or tags.has("sidewalk:right") or tags.has("sidewalk:both")
+			for side in RoadDimensionsScript.sidewalk_sides(tags):
+				var offset := -sidewalk_offset if side == "left" else sidewalk_offset
+				sidewalk_paths.append({
+					"path_id": "%s:sidewalk:%s" % [str(feature.get("id", "")), side],
+					"points": _offset_path(points, offset),
+					"half_width": sidewalk_width * 0.5,
+					"walkway": true, "crossing": false, "markings": false,
+					"oneway": false, "bridge": false, "tunnel": false,
+					"lanes": 1, "width_source": "osm_sidewalk" if has_explicit_sidewalk_tag else "road_class_default"
+				})
+				if not has_explicit_sidewalk_tag:
+					inferred_sidewalk_count += 1
 		var street_name := str(tags.get("name", "")).strip_edges()
 		if not walkway and not street_name.is_empty():
 			# OSM frequently divides one street into several ways. Keeping spatially
@@ -669,6 +978,7 @@ func _build_roads() -> void:
 				"b": points[index + 1],
 				"half_width": half_width,
 				"name": street_name.to_upper(),
+				"walkway": walkway,
 				"bridge": bridge,
 				"tunnel": tunnel,
 				"layer": int(str(tags.get("layer", "0"))) if str(tags.get("layer", "0")).is_valid_int() else 0
@@ -896,30 +1206,29 @@ func _build_street_labels(candidates: Array) -> void:
 		street_label_count += 1
 
 
-func _draw_road_markings(points: PackedVector2Array, oneway: bool) -> void:
+func _draw_road_markings(points: PackedVector2Array, oneway: bool, lanes: int, full_width: float) -> void:
+	if lanes < 2:
+		return
+	var dash_length := (3.0 if oneway else 2.5) * pixels_per_metre
+	var dash_gap := 2.0 * pixels_per_metre
+	var marking_width := maxf(1.0, 0.14 * pixels_per_metre)
 	for index in range(points.size() - 1):
 		var start := points[index]
 		var finish := points[index + 1]
 		var length := start.distance_to(finish)
-		if length < 8.0:
+		if length < pixels_per_metre:
 			continue
 		var direction := start.direction_to(finish)
-		var offset := 4.0
-		while offset < length:
-			var dash_end := minf(offset + (6.0 if oneway else 5.0), length)
-			draw_line(start + direction * offset, start + direction * dash_end, ROAD_LINE, 1.0, true)
-			offset += 13.0 if oneway else 11.0
-
-
-func _road_half_width(tags: Dictionary) -> float:
-	var kind := str(tags.get("highway", ""))
-	if kind in ["motorway", "trunk", "primary"]:
-		return 30.0
-	if kind in ["secondary", "tertiary"]:
-		return 24.0
-	if kind in ["footway", "path", "pedestrian", "cycleway"]:
-		return 7.0
-	return 18.0
+		var normal := Vector2(-direction.y, direction.x)
+		for separator in range(1, lanes):
+			var lateral_offset := -full_width * 0.5 + full_width * float(separator) / float(lanes)
+			var marked_start := start + normal * lateral_offset
+			var marked_finish := finish + normal * lateral_offset
+			var offset := pixels_per_metre
+			while offset < length:
+				var dash_end := minf(offset + dash_length, length)
+				draw_line(marked_start + direction * offset, marked_start + direction * dash_end, ROAD_LINE, marking_width, true)
+				offset += dash_length + dash_gap
 
 
 func _building_style(tags: Dictionary, feature_id: String) -> String:

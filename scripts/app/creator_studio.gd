@@ -930,8 +930,10 @@ func _create_town_project() -> bool:
 	var geometry_message := ""
 	if blocked_segment_count > 0 or vertical_road_count > 0 or clearance_count > 0:
 		geometry_message = " Safety check: %d road segment(s) through solid buildings and %d ambiguous layered road(s) were excluded; %d close but centre-line-clear segment(s) were kept for review. Details are saved in validation.json." % [blocked_segment_count, vertical_road_count, clearance_count]
+	var parking_area_count := int(imported_town.get("statistics", {}).get("parking_areas", 0))
+	var transport_message := " Roads, kerbs and footpaths use metre-based vehicle scale. %d mapped surface car park(s) were preserved; inferred bay guides are visual defaults." % parking_area_count
 	var rebuild_note := " Rebuild source: %s." % source_note if rebuilding and not source_note.is_empty() else ""
-	selection_instructions.text = "%s successfully. Building information, collisions, pathfinding and traffic rules were generated automatically from the OSM map.%s%s%s Hover or click a building during Play test to read its mapped details. Your source files remain unchanged." % ["Town project rebuilt" if rebuilding else "Town project created", control_message, geometry_message, rebuild_note]
+	selection_instructions.text = "%s successfully. Building information, collisions, pathfinding and traffic rules were generated automatically from the OSM map.%s%s%s%s Hover or click a building during Play test to read its mapped details. Your source files remain unchanged." % ["Town project rebuilt" if rebuilding else "Town project created", control_message, geometry_message, transport_message, rebuild_note]
 	return true
 
 

@@ -2,6 +2,7 @@ class_name SpawnSafety
 extends RefCounted
 
 const MapGeometryValidatorScript = preload("res://scripts/validation/map_geometry_validator.gd")
+const RoadDimensionsScript = preload("res://scripts/roads/road_dimensions.gd")
 
 # Clearance includes the collision body plus a small safety margin.
 const PLAYER_CLEARANCE_METRES := 1.0
@@ -245,17 +246,7 @@ static func _tag_enabled(value: Variant) -> bool:
 
 
 static func _road_half_width_metres(tags: Dictionary) -> float:
-	var width := str(tags.get("width", ""))
-	if width.is_valid_float() and width.to_float() > 0.5:
-		return clampf(width.to_float() * 0.5, 1.5, 20.0)
-	var highway := str(tags.get("highway", "")).to_lower()
-	if highway in ["motorway", "trunk", "primary"]:
-		return 4.5
-	if highway in ["secondary", "tertiary"]:
-		return 3.75
-	if highway in ["footway", "path", "pedestrian", "cycleway", "steps"]:
-		return 1.5
-	return 3.25
+	return RoadDimensionsScript.half_width_metres(tags)
 
 
 static func _to_local_metres(point: Vector2, origin: Vector2) -> Vector2:

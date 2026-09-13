@@ -31,6 +31,7 @@ func parse_files(file_paths: PackedStringArray) -> Dictionary:
 	var land_cover_count := 0
 	var water_area_count := 0
 	var waterway_count := 0
+	var parking_area_count := 0
 	var overhead_structure_count := 0
 	var bridge_road_count := 0
 	var tunnel_road_count := 0
@@ -149,6 +150,7 @@ func parse_files(file_paths: PackedStringArray) -> Dictionary:
 				"building": building_count += 1
 				"overhead_structure": overhead_structure_count += 1
 				"water": water_area_count += 1
+				"parking": parking_area_count += 1
 				"land_cover": land_cover_count += 1
 			for location in outer.points:
 				west = minf(west, location.x)
@@ -188,7 +190,7 @@ func parse_files(file_paths: PackedStringArray) -> Dictionary:
 		var tags: Dictionary = way.tags
 		var closed: bool = way.node_ids.size() >= 4 and way.node_ids[0] == way.node_ids[way.node_ids.size() - 1]
 		var kind := _way_kind(tags, closed)
-		if kind in ["building", "overhead_structure", "water", "land_cover"]:
+		if kind in ["building", "overhead_structure", "water", "parking", "land_cover"]:
 			var member_key := str(way.id) + ":" + kind + (":" + LandCoverScript.classify(tags) if kind == "land_cover" else "")
 			if relation_member_ways.has(member_key):
 				continue
@@ -208,13 +210,14 @@ func parse_files(file_paths: PackedStringArray) -> Dictionary:
 				south = minf(south, location.y)
 				north = maxf(north, location.y)
 
-		var minimum_points := 3 if kind in ["building", "overhead_structure", "water"] else 2
+		var minimum_points := 3 if kind in ["building", "overhead_structure", "water", "parking"] else 2
 		if points.size() < minimum_points:
 			continue
 		match kind:
 			"building": building_count += 1
 			"overhead_structure": overhead_structure_count += 1
 			"water": water_area_count += 1
+			"parking": parking_area_count += 1
 			"land_cover": land_cover_count += 1
 			"waterway", "coastline": waterway_count += 1
 			"road":
@@ -259,6 +262,7 @@ func parse_files(file_paths: PackedStringArray) -> Dictionary:
 			"roads": road_count,
 			"land_cover_areas": land_cover_count,
 			"water_areas": water_area_count,
+			"parking_areas": parking_area_count,
 			"linear_waterways_and_coastlines": waterway_count,
 			"overhead_structures": overhead_structure_count,
 			"bridge_roads": bridge_road_count,
@@ -287,6 +291,8 @@ func _area_kind(tags: Dictionary) -> String:
 		return "overhead_structure" if str(tags.get("building", "")).to_lower() == "roof" else "building"
 	if _is_water_area(tags):
 		return "water"
+	if _is_surface_parking(tags):
+		return "parking"
 	if not LandCoverScript.classify(tags).is_empty():
 		return "land_cover"
 	return ""
@@ -299,6 +305,8 @@ func _way_kind(tags: Dictionary, closed: bool) -> String:
 		return "road"
 	if closed and _is_water_area(tags):
 		return "water"
+	if closed and _is_surface_parking(tags):
+		return "parking"
 	if closed and not LandCoverScript.classify(tags).is_empty():
 		return "land_cover"
 	var waterway := str(tags.get("waterway", "")).to_lower()
@@ -315,6 +323,14 @@ func _is_water_area(tags: Dictionary) -> bool:
 	var waterway := str(tags.get("waterway", "")).to_lower()
 	var leisure := str(tags.get("leisure", "")).to_lower()
 	return natural == "water" or tags.has("water") or landuse == "reservoir" or waterway == "riverbank" or leisure == "swimming_pool"
+
+
+func _is_surface_parking(tags: Dictionary) -> bool:
+	if str(tags.get("amenity", "")).to_lower() != "parking":
+		return false
+	var parking := str(tags.get("parking", "surface")).to_lower()
+	var location := str(tags.get("location", "")).to_lower()
+	return parking not in ["multi-storey", "underground", "rooftop", "garage_boxes", "sheds"] and location not in ["underground", "indoor", "rooftop"]
 
 
 func _tag_enabled(value: Variant) -> bool:

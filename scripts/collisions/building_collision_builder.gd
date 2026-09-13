@@ -10,6 +10,7 @@ const DEFAULT_PIXELS_PER_METRE := 8.0
 const CHUNK_SIZE_METRES := 256.0
 const MINIMUM_BUILDING_AREA_SQUARE_METRES := 0.25
 const MapGeometryValidatorScript = preload("res://scripts/validation/map_geometry_validator.gd")
+const RoadDimensionsScript = preload("res://scripts/roads/road_dimensions.gd")
 
 
 func build(features: Array, map_bounds: Dictionary, pixels_per_metre: float = DEFAULT_PIXELS_PER_METRE) -> Dictionary:
@@ -144,17 +145,7 @@ func _tag_enabled(value: Variant) -> bool:
 
 
 func _road_half_width_metres(tags: Dictionary) -> float:
-	var explicit_width := str(tags.get("width", ""))
-	if explicit_width.is_valid_float() and explicit_width.to_float() > 0.5:
-		return clampf(explicit_width.to_float() * 0.5, 1.5, 20.0)
-	var highway := str(tags.get("highway", "")).to_lower()
-	if highway in ["motorway", "trunk", "primary"]:
-		return 4.5
-	if highway in ["secondary", "tertiary"]:
-		return 3.75
-	if highway in ["footway", "path", "pedestrian", "cycleway", "steps"]:
-		return 1.5
-	return 3.25
+	return RoadDimensionsScript.half_width_metres(tags)
 
 
 func geographic_to_local_metres(location: Vector2, projection: Dictionary) -> Vector2:
