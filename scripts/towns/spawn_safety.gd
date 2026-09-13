@@ -1,6 +1,8 @@
 class_name SpawnSafety
 extends RefCounted
 
+const MapGeometryValidatorScript = preload("res://scripts/validation/map_geometry_validator.gd")
+
 # Clearance includes the collision body plus a small safety margin.
 const PLAYER_CLEARANCE_METRES := 1.0
 const VEHICLE_CLEARANCE_METRES := 4.0
@@ -112,6 +114,8 @@ static func _collect_nearby_fixed_footprints(features: Array, origin: Vector2) -
 	var longitude_margin := (MAX_VEHICLE_DISTANCE_METRES + VEHICLE_CLEARANCE_METRES) / longitude_scale
 	for feature in features:
 		if str(feature.get("kind", "")) not in ["building", "fixed_footprint"]:
+			continue
+		if not MapGeometryValidatorScript.building_blocks_ground(feature):
 			continue
 		var points: Array = feature.get("points", [])
 		if points.size() < 3:

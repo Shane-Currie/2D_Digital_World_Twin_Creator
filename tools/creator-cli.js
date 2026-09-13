@@ -13,7 +13,7 @@ function landCoverCategory(tags) {
   return landCoverRules.find(rule => Object.entries(rule.tags).some(([key, values]) => values.includes(String(tags[key] || '').toLowerCase())))?.category || '';
 }
 
-const CREATOR_VERSION = '1.1';
+const CREATOR_VERSION = '1.2';
 const SCHEMA_VERSION = 1;
 const REQUIRED_RUNTIME_FEATURES = [
   'walking_player', 'player_driven_wagon', 'npc_pedestrians', 'npc_traffic',
@@ -117,6 +117,21 @@ function assembleOsmRings(references, ways, nodes) {
 function isEnabledOsmTag(value) {
   const text = String(value || '').toLowerCase();
   return text !== '' && !['no', 'false', '0'].includes(text);
+}
+
+function buildingBlocksGround(feature) {
+  if (!['building', 'fixed_footprint'].includes(String(feature?.kind || ''))) return false;
+  const tags = feature.tags || {};
+  const building = String(tags.building || '').toLowerCase();
+  if (['roof', 'bridge'].includes(building)) return false;
+  if (['underground', 'underwater', 'overground'].includes(String(tags.location || '').toLowerCase())) return false;
+  for (const key of ['building:min_level', 'min_level']) {
+    const minimumLevel = Number(tags[key]);
+    if (Number.isFinite(minimumLevel) && minimumLevel > 0) return false;
+  }
+  const level = Number(tags.level);
+  if (Number.isFinite(level) && level < 0) return false;
+  return true;
 }
 
 function isWaterArea(tags) {
@@ -522,7 +537,7 @@ function buildBuildingCollisions(features, mapBounds, pixelsPerMetre = 8) {
   const latitudeMetresPerDegree = 110540;
   const chunkSizeMetres = 256;
   const buildings = [], waterAreas = [], waterCrossings = [], warnings = [];
-  let sourceFootprints = 0, skippedInvalid = 0, estimatedConvexPieces = 0;
+  let sourceFootprints = 0, skippedInvalid = 0, nonGroundStructures = 0, estimatedConvexPieces = 0;
   const projectRing = geographicPoints => {
     const projected = [];
     for (const value of geographicPoints || []) {
@@ -537,6 +552,10 @@ function buildBuildingCollisions(features, mapBounds, pixelsPerMetre = 8) {
   for (const feature of features) {
     if (!['building', 'fixed_footprint'].includes(feature.kind)) continue;
     sourceFootprints++;
+    if (!buildingBlocksGround(feature)) {
+      nonGroundStructures++;
+      continue;
+    }
     const outer = projectRing(feature.points);
     const area = Math.abs(signedPolygonArea(outer));
     if (outer.length < 3 || area < 0.25 || !isSimplePolygon(outer)) {
@@ -553,7 +572,7 @@ function buildBuildingCollisions(features, mapBounds, pixelsPerMetre = 8) {
       id: String(feature.id || ''), kind: 'fixed_building_footprint', outer_metres: outer,
       holes_metres: holes, bounds_metres: { x, y, width, height }, area_square_metres: usableArea,
       chunk: [Math.floor((x + width / 2) / chunkSizeMetres), Math.floor((y + height / 2) / chunkSizeMetres)],
-      source: 'osm_footprint'
+      source: 'osm_footprint', vertical_context: 'ground'
     });
   }
   const roadHalfWidthMetres = tags => {
@@ -603,7 +622,7 @@ function buildBuildingCollisions(features, mapBounds, pixelsPerMetre = 8) {
     buildings, water_areas: waterAreas, water_crossings: waterCrossings,
     statistics: {
       source_footprints: sourceFootprints, collision_buildings: buildings.length,
-      skipped_invalid: skippedInvalid, estimated_convex_pieces: estimatedConvexPieces,
+      skipped_invalid: skippedInvalid, non_ground_structures: nonGroundStructures, estimated_convex_pieces: estimatedConvexPieces,
       blocking_water_areas: waterAreas.length, water_crossings: waterCrossings.length
     },
     warnings
@@ -668,7 +687,7 @@ function isUnsafeWater(point, features, clearanceMetres) {
 function distanceToFixedFootprints(point, features) {
   let nearest = Infinity;
   for (const feature of features) {
-    if (!['building', 'fixed_footprint'].includes(feature.kind) || feature.points.length < 3) continue;
+    if (!buildingBlocksGround(feature) || feature.points.length < 3) continue;
     const polygon = feature.points.map(candidate => localMetres(candidate, point));
 	const holes = (feature.holes || []).map(hole => hole.map(candidate => localMetres(candidate, point)));
 	const containingHole = holes.find(hole => hole.length >= 3 && pointInPolygon([0, 0], hole));
@@ -688,7 +707,7 @@ function collectNearbyFixedFootprints(features, origin) {
   const longitudeMargin = (MAX_VEHICLE_DISTANCE_METRES + VEHICLE_CLEARANCE_METRES) / longitudeScale;
   const footprints = [];
   for (const feature of features) {
-    if (!['building', 'fixed_footprint'].includes(feature.kind) || feature.points.length < 3) continue;
+    if (!buildingBlocksGround(feature) || feature.points.length < 3) continue;
     const longitudes = feature.points.map(point => point[0]), latitudes = feature.points.map(point => point[1]);
     const bounds = {
       west: Math.min(...longitudes), east: Math.max(...longitudes),
@@ -898,10 +917,13 @@ function importTown(options) {
       osm_water_placement: 'ready',
       bridge_water_crossings: 'ready',
       tunnel_layer_metadata: 'ready',
+      surface_collision_excludes_non_ground_structures: 'ready',
+      map_geometry_conflict_validation: 'requires_godot_build',
       navigation_graphs: 'requires_godot_build'
     },
     preview_limitations: [
       'ambiguous_or_missing_osm_water_geometry_requires_a_complete_export_or_future_map_editor_override',
+      'road_building_and_vertical_route_audit_requires_the_deterministic_godot_build_step',
       'detailed_turn_corridors_and_compatible_signal_movements',
       'venues_and_interiors',
       'property_boundaries_and_breakable_fences',

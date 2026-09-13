@@ -29,6 +29,14 @@ try {
   const environmentalCollisions = buildBuildingCollisions(environmental.features, environmental.bounds);
   assert.strictEqual(environmentalCollisions.water_areas.length, 1);
   assert.strictEqual(environmentalCollisions.water_crossings.length, 2);
+  const verticalCollisionFixture = [
+    { id: 'ground', kind: 'building', tags: { building: 'yes' }, points: [[146.001, -36.002], [146.002, -36.002], [146.002, -36.001], [146.001, -36.001], [146.001, -36.002]], holes: [] },
+    { id: 'raised', kind: 'building', tags: { building: 'yes', 'building:min_level': '1' }, points: [[146.003, -36.002], [146.004, -36.002], [146.004, -36.001], [146.003, -36.001], [146.003, -36.002]], holes: [] }
+  ];
+  const verticalCollisions = buildBuildingCollisions(verticalCollisionFixture, { west: 146, south: -36.01, east: 146.01, north: -36 });
+  assert.strictEqual(verticalCollisions.buildings.length, 1);
+  assert.strictEqual(verticalCollisions.buildings[0].vertical_context, 'ground');
+  assert.strictEqual(verticalCollisions.statistics.non_ground_structures, 1);
   const unresolvedWorkspace = path.join(temporaryWorkspace, 'unresolved-water');
   const rejectedWater = spawnSync(process.execPath, [
     cli, 'import-town', '--name', 'Unsafe Water Town', '--workspace', unresolvedWorkspace,
@@ -44,6 +52,7 @@ try {
   ]);
   assert.strictEqual(imported.ok, true);
   assert.strictEqual(imported.town.id, 'tiny_test_town');
+  assert.strictEqual(imported.town.creator_version, '1.2');
   assert.strictEqual(imported.town.statistics.buildings, 1);
   assert.strictEqual(imported.town.statistics.roads, 1);
 	assert.strictEqual(imported.town.source.original_files.length, 1);
@@ -129,7 +138,7 @@ try {
   assert(appText.includes('Local models are used only'));
   assert(appText.includes('_show_game_settings_page'));
   assert(appText.includes('Restore recommended settings'));
-  console.log(JSON.stringify({ passed: true, checks: 72, imported_town: imported.town_directory }));
+  console.log(JSON.stringify({ passed: true, checks: 76, imported_town: imported.town_directory }));
 } finally {
   fs.rmSync(temporaryWorkspace, { recursive: true, force: true });
 }

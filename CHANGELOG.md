@@ -8,6 +8,21 @@
 - Focused verification passed: the 72-check CLI/content suite; Creator import/setup/create workflow; OSM navigation; water/bridge/tunnel environment rules; traffic flow; and bridge/tunnel endpoint confinement. An existing Howlong v1.1 project launched through v1.2 with 330 moving road users and six collision chunks.
 - Godot emitted sandbox-only log-file and Windows root-certificate warnings during headless checks. Every invoked test returned exit code 0 with no GDScript error. Extended gameplay/performance remains user-tested.
 
+## 2026-09-13 — Stage 2 automatic map-geometry safety
+
+- Added a map-independent spatial audit for road, solid-building and vertical-feature geometry. Ground road segments whose centre line actually enters a solid ground building are excluded from both vehicle and pedestrian navigation. Tangential corner/wall contact is not falsely treated as an interior crossing.
+- Retain close but centre-line-clear roads and report their estimated full-width clearance conflicts instead of guessing whether an OSM road width or footprint is wrong. Save detailed conflict records and statistics in `data/navigation_graphs.json`, copy the plain-language warnings into `validation.json`, and summarize exclusions in Creator Studio after Create/Rebuild.
+- Separate surface collision and artwork from vertical structures. `building=roof`, bridge-like buildings and positive-minimum-level buildings no longer create ground walls; explicitly underground buildings are also omitted from the surface. Safe-start checks use the same ground-solid classification.
+- Explicit bridge/tunnel corridors stay routable. The controlled player and wagon ignore the surface-building layer only while admitted to a crossing corridor, while retaining their mutual collision masks. Ambiguous non-zero-layer roads without an explicit bridge/tunnel are excluded rather than becoming floating traffic routes.
+- Kept v1.1 content compatibility by making the new navigation audit block optional in the schema. Rebuilding upgrades a town to Creator v1.2 and writes the new data; the original copied OSM remains unchanged.
+
+### Focused verification
+
+- New synthetic geometry regression passed for ground penetration, tangent handling, close clearance, raised/underground/roof structures, explicit bridge/tunnel routes, ambiguous vertical roads, surface collisions and player/wagon crossing masks.
+- The real The Rocks source produced 668 ground-solid buildings, 248 excluded ground pedestrian segments, 658 close-clearance warnings, 50 ambiguous vertical roads and 179 explicit vertical passages. Its vehicle graph required zero road/building exclusions and retained 130 directed bridge plus 117 directed tunnel edges.
+- An isolated The Rocks v1.2 rebuild passed content validation and the shared runtime startup/control check with 330 moving road users and nine collision chunks. Navigation, water, Gold Coast, crossing-boundary, Creator UI and 76-check Node/content regressions passed. Headless Godot emitted only the known sandbox log/certificate warnings.
+- These are focused correctness and startup checks, not extended city performance or proof that incomplete/mistagged OSM can be repaired automatically. Close-clearance records and excluded ambiguous routes remain review items for the later Advanced Map Editor.
+
 ## v1.1 complete — 2026-09-13
 
 The v1.1 milestone is complete. This release includes the Creator Studio town import/reopen workflow, configurable populations and driving settings, playable town previews, real-world map-centre coordinates, mapped water/land cover, and the final bridge/tunnel corrections below.

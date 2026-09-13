@@ -42,6 +42,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	refresh_collision_mask_for_crossing()
 	if not occupied or not controls_enabled:
 		speed = 0.0
 		velocity = Vector2.ZERO
@@ -75,10 +76,17 @@ func _physics_process(delta: float) -> void:
 		speed = 0.0
 		velocity = Vector2.ZERO
 	crossing_travel.commit_move(previous_position, global_position)
+	refresh_collision_mask_for_crossing()
 
 
 func set_ground_check(check: Callable) -> void:
 	ground_check = check
+
+
+func refresh_collision_mask_for_crossing() -> void:
+	# Keep player collision on layer 2 while ignoring ground-building layer 1
+	# only when a mapped bridge or tunnel corridor owns the vehicle's movement.
+	collision_mask = 2 if not crossing_travel.active.is_empty() else 1 | 2
 
 
 func _movement_stays_on_ground(from: Vector2, to: Vector2, clearance: float) -> bool:

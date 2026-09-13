@@ -8,6 +8,8 @@ const RendererScript = preload("res://scripts/runtime/runtime_world_renderer.gd"
 
 func _initialize() -> void:
 	var source := ProjectSettings.globalize_path("res://../OSM/Sydney/The Rocks.osm")
+	if not FileAccess.file_exists(source):
+		source = ProjectSettings.globalize_path("res://../test/the_rocks_water_demo/source_osm/01_The Rocks.osm")
 	assert(FileAccess.file_exists(source), "The user-supplied The Rocks OSM source is missing.")
 	var started := Time.get_ticks_msec()
 	var imported: Dictionary = ImporterScript.new().parse_files(PackedStringArray([source]))
@@ -55,6 +57,10 @@ func _initialize() -> void:
 	var start := centre.duplicate(true)
 	start["vehicle"] = centre.duplicate(true)
 	var navigation: Dictionary = NavigationBuilderScript.new().build(imported.features, cbd, start).data
+	var geometry_statistics: Dictionary = navigation.geometry_validation.statistics
+	print("THE ROCKS GEOMETRY STATS: ", geometry_statistics)
+	print("THE ROCKS ROUTE EXCLUSIONS: vehicle=", navigation.vehicle.excluded_building_conflict_segments, " pedestrian=", navigation.pedestrian.excluded_building_conflict_segments)
+	assert(int(geometry_statistics.unclassified_vertical_roads) > 0, "The real map should expose ambiguous non-zero-layer roads for safe exclusion.")
 	var bridge_edges := 0
 	var tunnel_edges := 0
 	for edge_value in navigation.vehicle.edges:

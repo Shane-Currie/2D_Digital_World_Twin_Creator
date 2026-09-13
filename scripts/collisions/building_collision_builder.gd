@@ -9,6 +9,7 @@ const METRES_PER_LONGITUDE_DEGREE := 111320.0
 const DEFAULT_PIXELS_PER_METRE := 8.0
 const CHUNK_SIZE_METRES := 256.0
 const MINIMUM_BUILDING_AREA_SQUARE_METRES := 0.25
+const MapGeometryValidatorScript = preload("res://scripts/validation/map_geometry_validator.gd")
 
 
 func build(features: Array, map_bounds: Dictionary, pixels_per_metre: float = DEFAULT_PIXELS_PER_METRE) -> Dictionary:
@@ -23,10 +24,14 @@ func build(features: Array, map_bounds: Dictionary, pixels_per_metre: float = DE
 	var water_crossings: Array[Dictionary] = []
 	var warnings: Array[String] = []
 	var skipped := 0
+	var non_ground_structures := 0
 	var convex_piece_count := 0
 	for feature_value in features:
 		var feature: Dictionary = feature_value
 		if str(feature.get("kind", "")) not in ["building", "fixed_footprint"]:
+			continue
+		if not MapGeometryValidatorScript.building_blocks_ground(feature):
+			non_ground_structures += 1
 			continue
 		var outer := _project_and_clean(feature.get("points", []), origin)
 		if not _is_usable_polygon(outer):
@@ -59,7 +64,8 @@ func build(features: Array, map_bounds: Dictionary, pixels_per_metre: float = DE
 			},
 			"area_square_metres": _usable_area(outer, holes),
 			"chunk": [floori(centre.x / CHUNK_SIZE_METRES), floori(centre.y / CHUNK_SIZE_METRES)],
-			"source": "osm_footprint"
+			"source": "osm_footprint",
+			"vertical_context": "ground"
 		})
 	for feature_value in features:
 		var feature: Dictionary = feature_value
@@ -119,9 +125,10 @@ func build(features: Array, map_bounds: Dictionary, pixels_per_metre: float = DE
 		"water_areas": water_areas,
 		"water_crossings": water_crossings,
 		"statistics": {
-			"source_footprints": buildings.size() + skipped,
+			"source_footprints": buildings.size() + skipped + non_ground_structures,
 			"collision_buildings": buildings.size(),
 			"skipped_invalid": skipped,
+			"non_ground_structures": non_ground_structures,
 			"estimated_convex_pieces": convex_piece_count,
 			"blocking_water_areas": water_areas.size(),
 			"water_crossings": water_crossings.size()

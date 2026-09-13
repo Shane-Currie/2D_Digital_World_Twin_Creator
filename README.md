@@ -42,6 +42,8 @@ Creator Studio creates `<chosen directory>/<town_id>/`. The original source file
 
 Every create/save operation generates `data/building_collisions.json` directly from the imported OSM footprint coordinates. This deterministic process does not contact or use an LLM. Simple, concave and relation-based buildings retain their shapes; inner OSM rings remain open courtyards. Invalid geometry is listed in the validation report instead of being invented.
 
+Creator Studio also checks roads against ground-solid building footprints before generating pathfinding. A ground route whose centre line passes through a solid building is excluded from vehicle and pedestrian graphs; a close but centre-line-clear route stays usable and is reported for review. Explicit bridges, tunnels, overhead roofs and underground structures keep their separate vertical meaning. Ambiguous non-zero-layer roads without a real bridge/tunnel tag are excluded instead of creating flying traffic. Results are saved in `data/navigation_graphs.json` and `validation.json`; the full rules and limitations are documented in [docs/map_geometry_validation.md](docs/map_geometry_validation.md).
+
 ## Reopening and play testing
 
 From **Home**, select **Open previous project** and choose the town folder containing `town.json`—for example `test/wodonga_test`. The project reopens in the import/editor page and **Save project changes** updates its CBD, start and town metadata without copying the source files again.
@@ -71,6 +73,8 @@ The active Belconnen test now includes the University of Canberra campus. Its pl
 ## Pathfinding status
 
 Creating or saving a town now generates `data/navigation_graphs.json` from that town's own OSM data. It creates directed vehicle and pedestrian route graphs, respects one-way and access tags, uses shared OSM node IDs for real intersections, avoids falsely joining grade-separated crossings, checks whether both starts can reach the CBD, and reports disconnected sections. Where dedicated footpaths are absent, pedestrian routes beside ordinary non-motorway roads are explicitly marked as inferred.
+
+Before those graphs are saved, a spatial geometry audit removes ground segments that cross solid building footprints and rejects unclassified vertical roads. This uses the uploaded map itself, so the same process applies to dense cities, inland towns and coastal maps without an LLM. Rebuild older projects to add the audit data and corrected routes.
 
 The shared preview consumes these graphs for moving traffic and walking NPCs/NPRs; NPDs consume the aerial graph and may fly over footprints. Traffic is visually offset to the selected left or right side, population/CBD counts and wagon handling use the saved settings, and NPC skin colours use only the saved pigmentation-tone percentages.
 

@@ -29,7 +29,8 @@
           "holes_metres": { "type": "array", "items": { "$ref": "#/$defs/ring" } },
           "area_square_metres": { "type": "number", "minimum": 0 },
           "chunk": { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2 },
-          "source": { "const": "osm_footprint" }
+          "source": { "const": "osm_footprint" },
+          "vertical_context": { "const": "ground" }
         }
       }
     },

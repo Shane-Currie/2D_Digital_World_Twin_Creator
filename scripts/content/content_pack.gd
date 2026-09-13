@@ -2,7 +2,7 @@ class_name ContentPackWriter
 extends RefCounted
 
 const CONTENT_SCHEMA_VERSION := 1
-const CREATOR_VERSION := "1.1"
+const CREATOR_VERSION := "1.2"
 const GameSettingsStoreScript = preload("res://scripts/settings/game_settings_store.gd")
 const SpawnSafetyScript = preload("res://scripts/towns/spawn_safety.gd")
 const NavigationBuilderScript = preload("res://scripts/navigation/osm_navigation_builder.gd")
@@ -200,6 +200,7 @@ func update_town(town_directory: String, display_name: String, import_result: Di
 	if not parsed is Dictionary:
 		return {"ok": false, "message": "town.json is damaged or incomplete."}
 	var town: Dictionary = parsed
+	town["creator_version"] = CREATOR_VERSION
 	town["display_name"] = display_name.strip_edges()
 	town["updated_utc"] = Time.get_datetime_string_from_system(true)
 	town["map_bounds"] = import_result.bounds
@@ -269,6 +270,8 @@ func _runtime_profile() -> Dictionary:
 		"capabilities": {
 			"building_collision_data": "ready",
 			"building_collision_streaming_loader": "ready",
+			"map_geometry_conflict_validation": "ready",
+			"crossing_building_collision_separation": "ready",
 			"map_rendering": "ready",
 			"walking_and_wagon": "preview_ready",
 			"generational_survival_player_and_wagon": "ready",
@@ -293,6 +296,8 @@ func _runtime_profile() -> Dictionary:
 		},
 		"preview_limitations": [
 			"ambiguous_or_missing_osm_water_geometry_requires_a_complete_export_or_future_map_editor_override",
+			"unclassified_vertical_roads_are_excluded_until_osm_or_a_future_map_editor_confirms_their_level",
+			"centre_line_clear_road_building_clearance_warnings_require_creator_review",
 			"unmapped_ground_retains_stylised_grass_not_verified_land_cover",
 			"land_cover_does_not_infer_tree_collisions_wetland_depth_or_access_rights",
 			"detailed_turn_corridors_and_compatible_signal_movements",
@@ -336,13 +341,16 @@ func _write_navigation(data_directory: String, features: Array, cbd_bounds: Dict
 			"vehicle_edges": navigation_data.vehicle.edges.size(),
 			"pedestrian_nodes": navigation_data.pedestrian.nodes.size(),
 			"pedestrian_edges": navigation_data.pedestrian.edges.size(),
+			"vehicle_building_conflict_segments_excluded": int(navigation_data.vehicle.get("excluded_building_conflict_segments", 0)),
+			"pedestrian_building_conflict_segments_excluded": int(navigation_data.pedestrian.get("excluded_building_conflict_segments", 0)),
 			"aerial_nodes": navigation_data.aerial.nodes.size(),
 			"aerial_edges": navigation_data.aerial.edges.size(),
 			"vehicle_cbd_reachable": navigation_data.access.vehicle.cbd_reachable,
 			"pedestrian_cbd_reachable": navigation_data.access.pedestrian.cbd_reachable,
 			"traffic_signal_nodes": int(navigation_data.vehicle.get("traffic_control_counts", {}).get("traffic_signals", 0)),
 			"stop_sign_nodes": int(navigation_data.vehicle.get("traffic_control_counts", {}).get("stop", 0)),
-			"give_way_nodes": int(navigation_data.vehicle.get("traffic_control_counts", {}).get("give_way", 0))
+			"give_way_nodes": int(navigation_data.vehicle.get("traffic_control_counts", {}).get("give_way", 0)),
+			"map_geometry": navigation_data.geometry_validation.statistics
 		},
 		"warnings": navigation_data.warnings
 	}

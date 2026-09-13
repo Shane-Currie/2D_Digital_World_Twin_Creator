@@ -27,6 +27,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	refresh_collision_mask_for_crossing()
 	if not active or not controls_enabled:
 		walking = false
 		velocity = Vector2.ZERO
@@ -52,6 +53,7 @@ func _physics_process(delta: float) -> void:
 		global_position = previous_position
 		velocity = Vector2.ZERO
 	crossing_travel.commit_move(previous_position, global_position)
+	refresh_collision_mask_for_crossing()
 	walking = get_real_velocity().length() > 1.0
 	if walking:
 		animation_time += delta
@@ -60,6 +62,13 @@ func _physics_process(delta: float) -> void:
 
 func set_ground_check(check: Callable) -> void:
 	ground_check = check
+
+
+func refresh_collision_mask_for_crossing() -> void:
+	# Surface buildings exist on physics layer 1. A valid bridge/tunnel corridor
+	# supplies its own side confinement, so an actor on that separate OSM level
+	# must not collide with the building footprint above or below it.
+	collision_mask = 4 if not crossing_travel.active.is_empty() else 1 | 4
 
 
 func _movement_stays_on_ground(from: Vector2, to: Vector2, clearance: float) -> bool:

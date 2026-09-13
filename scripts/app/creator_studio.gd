@@ -913,8 +913,15 @@ func _create_town_project() -> bool:
 	var control_message := " Imported controls: %d traffic lights, %d stop signs and %d give-way signs." % [traffic_signal_count, stop_sign_count, give_way_count]
 	if traffic_signal_count + stop_sign_count + give_way_count == 0:
 		control_message = " No mapped traffic controls were found, so cars will use basic safe intersection rules."
+	var geometry_summary: Dictionary = navigation_summary.get("map_geometry", {})
+	var blocked_segment_count := int(geometry_summary.get("blocked_ground_road_segments", 0))
+	var vertical_road_count := int(geometry_summary.get("unclassified_vertical_roads", 0))
+	var clearance_count := int(geometry_summary.get("road_clearance_conflicts", 0))
+	var geometry_message := ""
+	if blocked_segment_count > 0 or vertical_road_count > 0 or clearance_count > 0:
+		geometry_message = " Safety check: %d road segment(s) through solid buildings and %d ambiguous layered road(s) were excluded; %d close but centre-line-clear segment(s) were kept for review. Details are saved in validation.json." % [blocked_segment_count, vertical_road_count, clearance_count]
 	var rebuild_note := " Rebuild source: %s." % source_note if rebuilding and not source_note.is_empty() else ""
-	selection_instructions.text = "%s successfully. Building collisions, pathfinding and traffic rules were generated automatically from the OSM map.%s%s Your source files remain unchanged." % ["Town project rebuilt" if rebuilding else "Town project created", control_message, rebuild_note]
+	selection_instructions.text = "%s successfully. Building collisions, pathfinding and traffic rules were generated automatically from the OSM map.%s%s%s Your source files remain unchanged." % ["Town project rebuilt" if rebuilding else "Town project created", control_message, geometry_message, rebuild_note]
 	return true
 
 

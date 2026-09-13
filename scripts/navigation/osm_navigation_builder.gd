@@ -10,16 +10,21 @@ const NON_DRIVABLE_HIGHWAYS := [
 ]
 const NON_WALKABLE_HIGHWAYS := ["motorway", "motorway_link", "construction", "proposed", "raceway"]
 const PEDESTRIAN_SPECIFIC_HIGHWAYS := ["footway", "path", "pedestrian", "steps", "living_street", "corridor", "platform"]
+const MapGeometryValidatorScript = preload("res://scripts/validation/map_geometry_validator.gd")
 
 
 func build(features: Array, cbd_bounds: Dictionary, starting_location: Dictionary, game_settings: Dictionary = {}) -> Dictionary:
 	var driving_side := str(game_settings.get("road_rules", {}).get("driving_side", "left"))
 	if driving_side not in ["left", "right"]:
 		driving_side = "left"
-	var vehicle_graph := _build_graph(features, "vehicle")
-	var pedestrian_graph := _build_graph(features, "pedestrian")
+	var geometry_validation: Dictionary = MapGeometryValidatorScript.new().analyse(features)
+	var blocked_segments: Dictionary = geometry_validation.blocked_segment_lookup
+	var vehicle_graph := _build_graph(features, "vehicle", blocked_segments)
+	var pedestrian_graph := _build_graph(features, "pedestrian", blocked_segments)
 	var aerial_graph := _build_aerial_graph(features, cbd_bounds)
 	var warnings: Array[String] = []
+	for warning in geometry_validation.warnings:
+		warnings.append(str(warning))
 	if vehicle_graph.nodes.is_empty():
 		warnings.append("No drivable OSM roads were found, so vehicle pathfinding is unavailable.")
 	if pedestrian_graph.nodes.is_empty():
@@ -56,13 +61,22 @@ func build(features: Array, cbd_bounds: Dictionary, starting_location: Dictionar
 			"vehicle": vehicle_graph,
 			"pedestrian": pedestrian_graph,
 			"aerial": aerial_graph,
+			"geometry_validation": {
+				"schema_version": geometry_validation.schema_version,
+				"kind": geometry_validation.kind,
+				"blocked_segments": geometry_validation.blocked_segments,
+				"clearance_conflicts": geometry_validation.clearance_conflicts,
+				"unclassified_vertical_roads": geometry_validation.unclassified_vertical_roads,
+				"statistics": geometry_validation.statistics
+			},
 			"access": {"vehicle": vehicle_access, "pedestrian": pedestrian_access, "aerial": aerial_access},
 			"assumptions": {
 				"pedestrians_may_walk_beside_ordinary_roads": true,
 				"shared_osm_node_ids_form_intersections": true,
-			"missing_lane_counts_use_one_route_each_direction": true,
-			"npd_drones_may_fly_over_building_footprints": true,
-			"ground_routes_cross_water_only_on_tagged_bridges_or_tunnels": true
+				"missing_lane_counts_use_one_route_each_direction": true,
+				"npd_drones_may_fly_over_building_footprints": true,
+				"ground_routes_cross_water_only_on_tagged_bridges_or_tunnels": true,
+				"ground_road_segments_inside_solid_buildings_are_excluded": true
 			},
 			"warnings": warnings
 		}
@@ -132,13 +146,14 @@ func _filled_array(size_value: int, value: int) -> Array[int]:
 	return result
 
 
-func _build_graph(features: Array, mode: String) -> Dictionary:
+func _build_graph(features: Array, mode: String, blocked_segments: Dictionary = {}) -> Dictionary:
 	var nodes: Array[Dictionary] = []
 	var edges: Array[Dictionary] = []
 	var node_by_coordinate: Dictionary = {}
 	var undirected_neighbours: Dictionary = {}
 	var edge_keys: Dictionary = {}
 	var inferred_edge_count := 0
+	var excluded_building_conflict_segments := 0
 	var water_areas := _water_areas(features)
 	for feature in features:
 		if str(feature.get("kind", "")) != "road":
@@ -157,6 +172,9 @@ func _build_graph(features: Array, mode: String) -> Dictionary:
 		var tunnel := _tag_enabled(tags.get("tunnel", ""))
 		var inferred_walking := mode == "pedestrian" and highway not in PEDESTRIAN_SPECIFIC_HIGHWAYS and not tags.has("sidewalk")
 		for index in range(points.size() - 1):
+			if blocked_segments.has("%s:%d" % [str(feature.get("id", "unknown")), index]):
+				excluded_building_conflict_segments += 1
+				continue
 			var first: Vector2 = points[index]
 			var second: Vector2 = points[index + 1]
 			var distance_metres := _distance_metres(first, second)
@@ -198,6 +216,7 @@ func _build_graph(features: Array, mode: String) -> Dictionary:
 		"component_count": component_data.component_sizes.size(),
 		"largest_component_size": component_data.largest_component_size,
 		"inferred_edge_count": inferred_edge_count,
+		"excluded_building_conflict_segments": excluded_building_conflict_segments,
 		"traffic_control_counts": control_counts
 	}
 
@@ -205,8 +224,16 @@ func _build_graph(features: Array, mode: String) -> Dictionary:
 func _route_allowed(tags: Dictionary, highway: String, mode: String) -> bool:
 	if highway.is_empty():
 		return false
+	if _tag_enabled(tags.get("indoor", "")) or highway == "corridor":
+		return false
 	var general_access := str(tags.get("access", "")).to_lower()
 	if general_access in ["no", "private"]:
+		return false
+	var layer_text := str(tags.get("layer", "0"))
+	var layer := int(layer_text) if layer_text.is_valid_int() else 0
+	var explicit_crossing := _tag_enabled(tags.get("bridge", "")) or _tag_enabled(tags.get("tunnel", ""))
+	var location := str(tags.get("location", "")).to_lower()
+	if (layer != 0 or location in ["underground", "underwater", "overground"]) and not explicit_crossing:
 		return false
 	if mode == "vehicle":
 		if highway in NON_DRIVABLE_HIGHWAYS:
@@ -217,10 +244,6 @@ func _route_allowed(tags: Dictionary, highway: String, mode: String) -> bool:
 		# cars when treated as ordinary public streets.
 		var service := str(tags.get("service", "")).to_lower()
 		if highway == "service" and service in ["driveway", "parking_aisle"]:
-			return false
-		var layer_text := str(tags.get("layer", "0"))
-		var layer := int(layer_text) if layer_text.is_valid_int() else 0
-		if layer != 0 and not _tag_enabled(tags.get("bridge", "")) and not _tag_enabled(tags.get("tunnel", "")):
 			return false
 		return str(tags.get("motor_vehicle", tags.get("vehicle", ""))).to_lower() not in ["no", "private"]
 	if highway in NON_WALKABLE_HIGHWAYS:

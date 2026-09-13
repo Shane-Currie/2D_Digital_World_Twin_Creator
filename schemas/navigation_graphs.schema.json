@@ -16,6 +16,18 @@
     "vehicle": { "$ref": "#/$defs/graph" },
     "pedestrian": { "$ref": "#/$defs/graph" },
     "aerial": { "$ref": "#/$defs/graph" },
+    "geometry_validation": {
+      "type": "object",
+      "required": ["schema_version", "kind", "blocked_segments", "clearance_conflicts", "unclassified_vertical_roads", "statistics"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "kind": { "const": "map_geometry_validation" },
+        "blocked_segments": { "type": "array" },
+        "clearance_conflicts": { "type": "array" },
+        "unclassified_vertical_roads": { "type": "array", "items": { "type": "string" } },
+        "statistics": { "type": "object" }
+      }
+    },
     "access": { "type": "object" },
     "assumptions": { "type": "object" },
     "warnings": { "type": "array", "items": { "type": "string" } }

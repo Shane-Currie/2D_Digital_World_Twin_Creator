@@ -1,6 +1,8 @@
 class_name RuntimeWorldRenderer
 extends Node2D
 
+const MapGeometryValidatorScript = preload("res://scripts/validation/map_geometry_validator.gd")
+
 const ProjectionScript = preload("res://scripts/runtime/town_projection.gd")
 const LandCoverScript = preload("res://scripts/land_cover/land_cover.gd")
 const LandCoverLayerScript = preload("res://scripts/land_cover/land_cover_layer.gd")
@@ -305,6 +307,8 @@ func _draw() -> void:
 		var feature: Dictionary = feature_value
 		if str(feature.get("kind", "")) != "building":
 			continue
+		if not MapGeometryValidatorScript.building_blocks_ground(feature):
+			continue
 		var outer: PackedVector2Array = _polygon(feature.get("points", []))
 		if outer.size() < 3:
 			continue
@@ -320,7 +324,9 @@ func _draw() -> void:
 				draw_polyline(_closed(hole), BUILDING_EDGE, 1.0, true)
 	for feature_value in features:
 		var feature: Dictionary = feature_value
-		if str(feature.get("kind", "")) != "overhead_structure":
+		var feature_kind := str(feature.get("kind", ""))
+		var vertical_context := MapGeometryValidatorScript.building_vertical_context(feature)
+		if feature_kind != "overhead_structure" and vertical_context != "overhead":
 			continue
 		var roof := _polygon(feature.get("points", []))
 		if roof.size() >= 3:
