@@ -932,8 +932,10 @@ func _create_town_project() -> bool:
 		geometry_message = " Safety check: %d road segment(s) through solid buildings and %d ambiguous layered road(s) were excluded; %d close but centre-line-clear segment(s) were kept for review. Details are saved in validation.json." % [blocked_segment_count, vertical_road_count, clearance_count]
 	var parking_area_count := int(imported_town.get("statistics", {}).get("parking_areas", 0))
 	var transport_message := " Roads, kerbs and footpaths use metre-based vehicle scale. %d mapped surface car park(s) were preserved; inferred bay guides are visual defaults." % parking_area_count
+	var crossing_count := int(navigation_summary.get("mapped_pedestrian_crossing_edges", 0))
+	var crossing_message := " %d mapped pedestrian crossing route(s) now make NPCs and robots wait for a traffic gap; NPC cars yield after they commit." % crossing_count if crossing_count > 0 else " No mapped pedestrian crossing routes were found; Creator Studio has not invented crossings."
 	var rebuild_note := " Rebuild source: %s." % source_note if rebuilding and not source_note.is_empty() else ""
-	selection_instructions.text = "%s successfully. Building information, collisions, pathfinding and traffic rules were generated automatically from the OSM map.%s%s%s%s Hover or click a building during Play test to read its mapped details. Your source files remain unchanged." % ["Town project rebuilt" if rebuilding else "Town project created", control_message, geometry_message, transport_message, rebuild_note]
+	selection_instructions.text = "%s successfully. Building information, collisions, pathfinding and traffic rules were generated automatically from the OSM map.%s%s%s%s%s Hover or click a building during Play test to read its mapped details. Your source files remain unchanged." % ["Town project rebuilt" if rebuilding else "Town project created", control_message, geometry_message, transport_message, crossing_message, rebuild_note]
 	return true
 
 

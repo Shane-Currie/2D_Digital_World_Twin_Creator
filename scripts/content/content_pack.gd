@@ -293,6 +293,7 @@ func _runtime_profile() -> Dictionary:
 			"walking_and_wagon": "preview_ready",
 			"generational_survival_player_and_wagon": "ready",
 			"graph_population_movement": "preview_ready",
+			"osm_mapped_pedestrian_crossing_wait_and_npc_yield": "preview_ready",
 			"driving_side_lane_positioning": "preview_ready",
 			"traffic_following_spacing": "preview_ready",
 			"basic_intersection_reservations": "preview_ready",
@@ -319,6 +320,7 @@ func _runtime_profile() -> Dictionary:
 			"unmapped_ground_retains_stylised_grass_not_verified_land_cover",
 			"land_cover_does_not_infer_tree_collisions_wetland_depth_or_access_rights",
 			"detailed_turn_corridors_and_compatible_signal_movements",
+			"unmapped_pedestrian_crossings_and_player_vehicle_contacts_need_later_validation",
 			"venues_and_interiors",
 			"property_boundaries_and_breakable_fences",
 			"save_game_progress"
@@ -371,6 +373,7 @@ func _write_navigation(data_directory: String, features: Array, cbd_bounds: Dict
 			"vehicle_edges": navigation_data.vehicle.edges.size(),
 			"pedestrian_nodes": navigation_data.pedestrian.nodes.size(),
 			"pedestrian_edges": navigation_data.pedestrian.edges.size(),
+			"mapped_pedestrian_crossing_edges": int(navigation_data.pedestrian.get("mapped_crossing_edge_count", 0)),
 			"vehicle_building_conflict_segments_excluded": int(navigation_data.vehicle.get("excluded_building_conflict_segments", 0)),
 			"pedestrian_building_conflict_segments_excluded": int(navigation_data.pedestrian.get("excluded_building_conflict_segments", 0)),
 			"aerial_nodes": navigation_data.aerial.nodes.size(),

@@ -153,6 +153,7 @@ func _build_graph(features: Array, mode: String, blocked_segments: Dictionary = 
 	var undirected_neighbours: Dictionary = {}
 	var edge_keys: Dictionary = {}
 	var inferred_edge_count := 0
+	var mapped_crossing_edge_count := 0
 	var excluded_building_conflict_segments := 0
 	var water_areas := _water_areas(features)
 	for feature in features:
@@ -194,10 +195,14 @@ func _build_graph(features: Array, mode: String, blocked_segments: Dictionary = 
 			var reverse_key := "%s>%s" % [second_key, first_key]
 			if one_way >= 0 and not edge_keys.has(forward_key):
 				edge_keys[forward_key] = true
-				edges.append(_edge(edges.size(), first_id, second_id, distance_metres, feature, highway, inferred_walking))
+				var forward_edge := _edge(edges.size(), first_id, second_id, distance_metres, feature, highway, inferred_walking)
+				edges.append(forward_edge)
+				if bool(forward_edge.crossing): mapped_crossing_edge_count += 1
 			if one_way <= 0 and not edge_keys.has(reverse_key):
 				edge_keys[reverse_key] = true
-				edges.append(_edge(edges.size(), second_id, first_id, distance_metres, feature, highway, inferred_walking))
+				var reverse_edge := _edge(edges.size(), second_id, first_id, distance_metres, feature, highway, inferred_walking)
+				edges.append(reverse_edge)
+				if bool(reverse_edge.crossing): mapped_crossing_edge_count += 1
 			if inferred_walking:
 				inferred_edge_count += 2
 
@@ -216,6 +221,7 @@ func _build_graph(features: Array, mode: String, blocked_segments: Dictionary = 
 		"component_count": component_data.component_sizes.size(),
 		"largest_component_size": component_data.largest_component_size,
 		"inferred_edge_count": inferred_edge_count,
+		"mapped_crossing_edge_count": mapped_crossing_edge_count,
 		"excluded_building_conflict_segments": excluded_building_conflict_segments,
 		"traffic_control_counts": control_counts
 	}
@@ -356,6 +362,7 @@ func _edge(id: int, from_id: int, to_id: int, distance_metres: float, feature: D
 		"source_way_id": str(feature.get("id", "")),
 		"highway": highway,
 		"service": str(tags.get("service", "")),
+		"crossing": highway in ["footway", "path", "pedestrian"] and (str(tags.get("footway", "")).to_lower() == "crossing" or str(tags.get("pedestrian", "")).to_lower() == "crossing" or str(tags.get("crossing", "")).to_lower() not in ["", "no", "false", "0"]),
 		"inferred": inferred,
 		"bridge": _tag_enabled(tags.get("bridge", "")),
 		"tunnel": _tag_enabled(tags.get("tunnel", "")),

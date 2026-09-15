@@ -3,6 +3,7 @@ extends Node2D
 
 const ProjectionScript = preload("res://scripts/runtime/town_projection.gd")
 const TrafficFlowScript = preload("res://scripts/runtime/traffic/runtime_traffic_flow.gd")
+const CrossingSafetyScript = preload("res://scripts/runtime/pedestrians/runtime_crossing_safety.gd")
 
 var agents: Array[Dictionary] = []
 var graphs: Dictionary = {}
@@ -10,6 +11,8 @@ var rng := RandomNumberGenerator.new()
 var driving_side := "left"
 var skin_tone_distribution: Dictionary = {}
 var traffic_flow = TrafficFlowScript.new()
+var crossing_safety = CrossingSafetyScript.new()
+var owned_wagon: Node2D
 var traffic_obstacles: Array[Node2D] = []
 var bridge_corridors: Array[Dictionary] = []
 var water_bridge_ids: Dictionary = {}
@@ -33,6 +36,7 @@ func setup(navigation: Dictionary, settings: Dictionary, projection: Dictionary,
 	driving_side = str(settings.get("road_rules", {}).get("driving_side", "left"))
 	skin_tone_distribution = settings.get("skin_tone_distribution", {})
 	traffic_flow.configure(settings)
+	crossing_safety.reset()
 	graphs = {
 		"traffic": _prepare_graph(navigation.vehicle, projection, scale, cbd_bounds, map_bounds, true),
 		"person": _prepare_graph(navigation.pedestrian, projection, scale, cbd_bounds, map_bounds),
@@ -59,6 +63,7 @@ func _process(delta: float) -> void:
 
 func set_gameplay_obstacles(obstacles: Array[Node2D]) -> void:
 	traffic_obstacles = obstacles
+	owned_wagon = obstacles[1] if obstacles.size() > 1 else null
 
 
 func set_bridge_corridors(corridors: Array[Dictionary]) -> void:
@@ -88,11 +93,24 @@ func set_active_land_bridge(bridge_id: String) -> void:
 
 
 func _advance_agent(agent: Dictionary, delta: float) -> void:
+	if bool(agent.get("route_crossing", false)) and not bool(agent.get("crossing_committed", false)):
+		agent["crossing_retry_seconds"] = float(agent.get("crossing_retry_seconds", 0.0)) - delta
+		if float(agent.crossing_retry_seconds) > 0.0:
+			return
+		agent.crossing_retry_seconds = 0.25
+		if not crossing_safety.can_begin(agent.position, agent.target, float(agent.speed), agents, owned_wagon):
+			agent["crossing_wait_seconds"] = float(agent.get("crossing_wait_seconds", 0.0)) + 0.25
+			if float(agent.crossing_wait_seconds) >= 8.0:
+				_choose_next(agent, true)
+			return
+		crossing_safety.reserve(agent)
 	var target: Vector2 = agent.target
 	var current_position: Vector2 = agent.position
 	var difference: Vector2 = target - current_position
 	if difference.length() <= maxf(2.0, float(agent.speed) * delta):
 		agent.position = target
+		if bool(agent.get("crossing_committed", false)):
+			crossing_safety.release(agent, true)
 		agent.node = agent.target_node
 		_choose_next(agent)
 	else:
@@ -104,18 +122,17 @@ func _advance_traffic(agent: Dictionary, delta: float) -> void:
 	var target: Vector2 = agent.target
 	var current_position: Vector2 = agent.position
 	var difference: Vector2 = target - current_position
-	if difference.length() <= maxf(2.0, float(agent.speed) * delta):
-		agent.position = target
-		agent.node = agent.target_node
-		traffic_flow.complete_segment(agent)
-		_choose_next(agent)
-		return
-	var next_position := current_position + difference.normalized() * float(agent.speed) * delta
+	var reaches_target := difference.length() <= maxf(2.0, float(agent.speed) * delta)
+	var next_position := target if reaches_target else current_position + difference.normalized() * float(agent.speed) * delta
 	var graph: Dictionary = graphs.traffic
-	if traffic_flow.can_move(agent, agents, next_position, graph, traffic_obstacles, elapsed, delta):
+	if traffic_flow.can_move(agent, agents, next_position, graph, traffic_obstacles, elapsed, delta, crossing_safety):
 		agent.position = next_position
 		agent.angle = lerp_angle(float(agent.angle), difference.angle(), 1.0 - exp(-delta * 7.0))
 		agent.waiting_seconds = 0.0
+		if reaches_target:
+			agent.node = agent.target_node
+			traffic_flow.complete_segment(agent)
+			_choose_next(agent)
 		return
 	if traffic_flow.update_wait_and_recover(agent, delta, elapsed, graph, agents, traffic_obstacles, rng):
 		_choose_next(agent)
@@ -386,6 +403,8 @@ func _add_population(kind: String, count: int, cbd_percent: int, speed: float) -
 		var candidates: Array = cbd_ids if index < cbd_count and not cbd_ids.is_empty() else all_ids
 		var node_id := int(candidates[rng.randi_range(0, candidates.size() - 1)])
 		var agent := {"kind": kind, "node": node_id, "target_node": node_id, "position": graph.nodes[node_id], "target": graph.nodes[node_id], "speed": speed * rng.randf_range(0.82, 1.18), "angle": 0.0, "graph_key": graph_key, "phase": rng.randf_range(0.0, 1.0)}
+		if kind in ["person", "robot"]:
+			agent["walker_id"] = agents.size()
 		if kind == "person":
 			agent["skin_tone"] = _choose_skin_tone()
 			agent["hair"] = Color(["49382c", "242c2c", "775539", "a48550", "aaa797"][rng.randi_range(0, 4)])
@@ -405,9 +424,20 @@ func _add_population(kind: String, count: int, cbd_percent: int, speed: float) -
 		_choose_next(agent)
 
 
-func _choose_next(agent: Dictionary) -> void:
+func _choose_next(agent: Dictionary, avoid_crossing: bool = false) -> void:
+	if bool(agent.get("crossing_committed", false)):
+		crossing_safety.release(agent)
 	var graph: Dictionary = graphs[agent.graph_key]
 	var options: Array = graph.adjacency.get(agent.node, [])
+	if avoid_crossing:
+		var non_crossing_options: Array = []
+		for option_value in options:
+			var option := int(option_value)
+			var option_edge: Dictionary = graph.get("edge_by_pair", {}).get("%d>%d" % [int(agent.node), option], {})
+			if not bool(option_edge.get("crossing", false)):
+				non_crossing_options.append(option)
+		if not non_crossing_options.is_empty():
+			options = non_crossing_options
 	if options.is_empty():
 		var all_ids: Array = graph.all_ids
 		agent.node = int(all_ids[rng.randi_range(0, all_ids.size() - 1)])
@@ -419,6 +449,7 @@ func _choose_next(agent: Dictionary) -> void:
 		agent["route_tunnel"] = false
 		agent["route_layer"] = 0
 		agent["route_source_way_id"] = ""
+		agent["route_crossing"] = false
 		return
 	agent.target_node = int(options[rng.randi_range(0, options.size() - 1)])
 	agent.target = graph.nodes[agent.target_node]
@@ -427,6 +458,9 @@ func _choose_next(agent: Dictionary) -> void:
 	agent["route_tunnel"] = bool(edge.get("tunnel", false))
 	agent["route_layer"] = int(edge.get("layer", 0))
 	agent["route_source_way_id"] = str(edge.get("source_way_id", ""))
+	agent["route_crossing"] = bool(edge.get("crossing", false)) and str(agent.kind) in ["person", "robot"] and not bool(edge.get("bridge", false)) and not bool(edge.get("tunnel", false))
+	agent["crossing_retry_seconds"] = 0.0
+	agent["crossing_wait_seconds"] = 0.0
 
 
 func _choose_skin_tone() -> Color:

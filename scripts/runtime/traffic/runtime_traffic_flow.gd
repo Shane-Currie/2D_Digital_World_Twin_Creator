@@ -27,7 +27,7 @@ func configure(settings: Dictionary) -> void:
 	respawn_attempts = int(recovery.get("respawn_attempts", 24))
 
 
-func can_move(agent: Dictionary, agents: Array[Dictionary], next_position: Vector2, graph: Dictionary, obstacles: Array[Node2D], elapsed: float = 0.0, delta: float = 0.0) -> bool:
+func can_move(agent: Dictionary, agents: Array[Dictionary], next_position: Vector2, graph: Dictionary, obstacles: Array[Node2D], elapsed: float = 0.0, delta: float = 0.0, crossing_safety: Variant = null) -> bool:
 	if _same_lane_leader_is_close(agent, agents):
 		agent.blocked_reason = "Traffic ahead"
 		return false
@@ -35,6 +35,9 @@ func can_move(agent: Dictionary, agents: Array[Dictionary], next_position: Vecto
 		if is_instance_valid(obstacle) and obstacle.visible and next_position.distance_to(obstacle.position) < PLAYER_CLEARANCE_PIXELS:
 			agent.blocked_reason = "Player or owned vehicle ahead"
 			return false
+	if crossing_safety != null and not bool(agent.get("route_bridge", false)) and not bool(agent.get("route_tunnel", false)) and not crossing_safety.car_may_move(agent.position, next_position):
+		agent.blocked_reason = "Pedestrian crossing"
+		return false
 	var target_node := int(agent.get("target_node", -1))
 	var target: Vector2 = agent.get("target", next_position)
 	var approaching_control := next_position.distance_to(target) <= JUNCTION_APPROACH_PIXELS
@@ -87,8 +90,8 @@ func complete_segment(agent: Dictionary) -> void:
 
 
 func update_wait_and_recover(agent: Dictionary, delta: float, elapsed: float, graph: Dictionary, agents: Array[Dictionary], obstacles: Array[Node2D], rng: RandomNumberGenerator) -> bool:
-	# Legal signal waits do not count as a traffic jam, matching the v1.3 rule.
-	if str(agent.get("blocked_reason", "")) == "Traffic signal":
+	# Legal signal and committed-walker waits do not count as a traffic jam.
+	if str(agent.get("blocked_reason", "")) in ["Traffic signal", "Pedestrian crossing"]:
 		return false
 	agent.waiting_seconds = float(agent.get("waiting_seconds", 0.0)) + delta
 	if not recovery_enabled or float(agent.waiting_seconds) < jam_timeout_seconds:
