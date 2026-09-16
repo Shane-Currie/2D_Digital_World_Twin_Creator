@@ -1,6 +1,4 @@
+# Publishing worktree metadata and local Godot caches
 .godot/
-*.tmp
-creator-studio-startup.log
-tools/tests/output/
-Thumbs.db
-.DS_Store
+**/.godot/
+**/creator-studio-startup.log

@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://2ddigitalworldtwincreator.local/schemas/building_collisions.schema.json",
+  "title": "OSM-derived building collision index",
+  "type": "object",
+  "required": ["schema_version", "kind", "projection", "runtime_scale", "chunk_size_metres", "buildings", "statistics"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "kind": { "const": "building_collision_index" },
+    "projection": {
+      "type": "object",
+      "required": ["method", "origin_longitude", "origin_latitude", "longitude_metres_per_degree", "latitude_metres_per_degree"]
+    },
+    "runtime_scale": {
+      "type": "object",
+      "required": ["pixels_per_metre"],
+      "properties": { "pixels_per_metre": { "type": "number", "exclusiveMinimum": 0 } }
+    },
+    "chunk_size_metres": { "type": "number", "exclusiveMinimum": 0 },
+    "buildings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "outer_metres", "holes_metres", "bounds_metres", "area_square_metres", "chunk", "source"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "const": "fixed_building_footprint" },
+          "outer_metres": { "$ref": "#/$defs/ring" },
+          "holes_metres": { "type": "array", "items": { "$ref": "#/$defs/ring" } },
+          "area_square_metres": { "type": "number", "minimum": 0 },
+          "chunk": { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2 },
+          "source": { "const": "osm_footprint" },
+          "vertical_context": { "const": "ground" }
+        }
+      }
+    },
+    "water_areas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "outer_metres", "holes_metres", "bounds_metres", "source"],
+        "properties": {
+          "id": { "type": "string" },
+          "outer_metres": { "$ref": "#/$defs/ring" },
+          "holes_metres": { "type": "array", "items": { "$ref": "#/$defs/ring" } },
+          "bounds_metres": { "type": "object" },
+          "source": { "const": "osm_water" }
+        }
+      }
+    },
+    "water_crossings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "points_metres", "half_width_metres", "layer", "source"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "enum": ["bridge", "tunnel"] },
+          "points_metres": { "type": "array", "items": { "$ref": "#/$defs/point" }, "minItems": 2 },
+          "half_width_metres": { "type": "number", "exclusiveMinimum": 0 },
+          "layer": { "type": "integer" },
+          "source": { "const": "osm_road" }
+        }
+      }
+    },
+    "statistics": { "type": "object" },
+    "warnings": { "type": "array", "items": { "type": "string" } }
+  },
+  "$defs": {
+    "point": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+    "ring": { "type": "array", "items": { "$ref": "#/$defs/point" }, "minItems": 3 }
+  }
+}

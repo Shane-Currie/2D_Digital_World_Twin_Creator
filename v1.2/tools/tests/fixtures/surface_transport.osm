@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6" generator="Creator Studio transport fixture">
+  <bounds minlat="-30.005" minlon="150.000" maxlat="-30.000" maxlon="150.005"/>
+  <node id="1" lat="-30.0040" lon="150.0005"/><node id="2" lat="-30.0040" lon="150.0045"/>
+  <node id="3" lat="-30.0030" lon="150.0005"/><node id="4" lat="-30.0030" lon="150.0045"/>
+  <node id="5" lat="-30.0008" lon="150.0005"/><node id="6" lat="-30.0008" lon="150.0045"/>
+  <node id="10" lat="-30.0025" lon="150.0005"/><node id="11" lat="-30.0025" lon="150.0025"/>
+  <node id="12" lat="-30.0014" lon="150.0025"/><node id="13" lat="-30.0014" lon="150.0005"/>
+  <node id="20" lat="-30.0022" lon="150.0010"/><node id="21" lat="-30.0022" lon="150.0015"/>
+  <node id="22" lat="-30.0018" lon="150.0015"/><node id="23" lat="-30.0018" lon="150.0010"/>
+  <way id="100">
+    <nd ref="1"/><nd ref="2"/>
+    <tag k="highway" v="primary"/><tag k="lanes" v="4"/><tag k="sidewalk" v="no"/><tag k="name" v="Scale Avenue"/>
+  </way>
+  <way id="101">
+    <nd ref="3"/><nd ref="4"/>
+    <tag k="highway" v="residential"/><tag k="width" v="6.4 m"/><tag k="sidewalk" v="both"/><tag k="name" v="Footpath Street"/>
+  </way>
+  <way id="102">
+    <nd ref="5"/><nd ref="6"/>
+    <tag k="highway" v="footway"/><tag k="width" v="2.0"/>
+  </way>
+  <way id="200">
+    <nd ref="10"/><nd ref="11"/><nd ref="12"/><nd ref="13"/><nd ref="10"/>
+    <tag k="amenity" v="parking"/><tag k="parking" v="surface"/><tag k="surface" v="asphalt"/><tag k="name" v="Test Car Park"/>
+  </way>
+  <way id="300">
+    <nd ref="20"/><nd ref="21"/><nd ref="22"/><nd ref="23"/><nd ref="20"/>
+    <tag k="building" v="retail"/>
+  </way>
+</osm>

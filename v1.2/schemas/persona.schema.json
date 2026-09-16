@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://2ddigitalworldtwincreator.local/schemas/persona.schema.json",
+  "title": "NPC Persona",
+  "type": "object",
+  "required": ["schema_version", "id", "name", "background", "personality", "speaking_style"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+    "name": { "type": "string", "minLength": 1 },
+    "background": { "type": "string" },
+    "personality": { "type": "string" },
+    "speaking_style": { "type": "string" },
+    "knowledge": { "type": "array", "items": { "type": "string" } },
+    "boundaries": { "type": "array", "items": { "type": "string" } },
+    "greeting": { "type": "string" }
+  },
+  "additionalProperties": false
+}
+

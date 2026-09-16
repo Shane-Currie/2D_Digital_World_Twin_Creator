@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://2ddigitalworldtwincreator.local/schemas/navigation_graphs.schema.json",
+  "title": "OSM navigation graphs",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "road_rules", "vehicle", "pedestrian", "aerial", "access", "assumptions", "warnings"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "kind": { "const": "osm_navigation_graphs" },
+    "road_rules": {
+      "type": "object",
+      "required": ["driving_side"],
+      "properties": { "driving_side": { "enum": ["left", "right"] } }
+    },
+    "vehicle": { "$ref": "#/$defs/graph" },
+    "pedestrian": { "$ref": "#/$defs/graph" },
+    "aerial": { "$ref": "#/$defs/graph" },
+    "geometry_validation": {
+      "type": "object",
+      "required": ["schema_version", "kind", "blocked_segments", "clearance_conflicts", "unclassified_vertical_roads", "statistics"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "kind": { "const": "map_geometry_validation" },
+        "blocked_segments": { "type": "array" },
+        "clearance_conflicts": { "type": "array" },
+        "unclassified_vertical_roads": { "type": "array", "items": { "type": "string" } },
+        "statistics": { "type": "object" }
+      }
+    },
+    "access": { "type": "object" },
+    "assumptions": { "type": "object" },
+    "warnings": { "type": "array", "items": { "type": "string" } }
+  },
+  "$defs": {
+    "graph": {
+      "type": "object",
+      "required": ["mode", "nodes", "edges", "component_count"],
+      "properties": {
+        "mode": { "enum": ["vehicle", "pedestrian", "aerial"] },
+        "nodes": { "type": "array" },
+        "edges": { "type": "array" },
+        "component_count": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
