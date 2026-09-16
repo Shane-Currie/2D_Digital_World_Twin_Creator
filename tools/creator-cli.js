@@ -25,7 +25,7 @@ const REQUIRED_RUNTIME_FEATURES = [
 ];
 
 function recommendedGameSettings() {
-  const equalSkinToneShare = 100 / 7;
+  const equalSkinToneShare = 100 / 3;
   return {
     schema_version: SCHEMA_VERSION,
     population: {
@@ -34,20 +34,33 @@ function recommendedGameSettings() {
     },
     road_rules: { driving_side: 'left' },
     skin_tone_distribution: {
-      very_light_percent: equalSkinToneShare, light_percent: equalSkinToneShare,
-      medium_light_percent: equalSkinToneShare, medium_percent: equalSkinToneShare,
-      medium_dark_percent: equalSkinToneShare, dark_percent: equalSkinToneShare,
-      very_dark_percent: equalSkinToneShare
+      light_percent: equalSkinToneShare, medium_percent: equalSkinToneShare,
+      dark_percent: equalSkinToneShare
     },
+    camera: { character_zoom: 2.0 },
     driving: {
       forward_speed: 108, reverse_speed: 36, acceleration: 42, reverse_acceleration: 70,
-      coast_deceleration: 30, brake_deceleration: 140, steering_rate: 1.9, camera_zoom_multiplier: 0.8
+      coast_deceleration: 30, brake_deceleration: 140, steering_rate: 1.9, camera_zoom_multiplier: 1.5
     },
     traffic_recovery: {
       enabled: true, jam_timeout_seconds: 30, recovery_spacing_seconds: 2,
       respawn_distance_pixels: 800, respawn_attempts: 24
     }
   };
+}
+
+function migrateSkinTones(saved, defaults) {
+  if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return { ...defaults };
+  if (['very_light_percent', 'medium_light_percent', 'medium_dark_percent', 'very_dark_percent'].some(key => key in saved)) {
+    return {
+      light_percent: Number(saved.very_light_percent || 0) + Number(saved.light_percent || 0) + Number(saved.medium_light_percent || 0),
+      medium_percent: Number(saved.medium_percent || 0) + Number(saved.medium_dark_percent || 0),
+      dark_percent: Number(saved.dark_percent || 0) + Number(saved.very_dark_percent || 0)
+    };
+  }
+  return Object.keys(defaults).every(key => key in saved)
+    ? Object.fromEntries(Object.keys(defaults).map(key => [key, Number(saved[key])]))
+    : { ...defaults };
 }
 
 function parseArguments(values) {
@@ -933,6 +946,9 @@ function validateGameSettings(settings) {
     skinToneTotal += Number(settings?.skin_tone_distribution?.[key] || 0);
   }
   if (Math.abs(skinToneTotal - 100) > 0.05) errors.push(`Skin pigmentation tone percentages must total 100%. They currently total ${skinToneTotal.toFixed(2)}%.`);
+  // Previous towns had no separate walking zoom. They still validate with
+  // their original 1x walking view; a supplied value must meet the GUI range.
+  if (settings && 'camera' in settings) check(settings?.camera, 'character_zoom', 0.2, 3, 'On-foot camera zoom');
   check(settings?.driving, 'forward_speed', 1, 400, 'Forward speed');
   check(settings?.driving, 'reverse_speed', 1, 200, 'Reverse speed');
   check(settings?.driving, 'acceleration', 1, 400, 'Acceleration');
@@ -940,7 +956,7 @@ function validateGameSettings(settings) {
   check(settings?.driving, 'coast_deceleration', 1, 400, 'Coasting slowdown');
   check(settings?.driving, 'brake_deceleration', 1, 800, 'Brake strength');
   check(settings?.driving, 'steering_rate', 0.1, 8, 'Steering speed');
-  check(settings?.driving, 'camera_zoom_multiplier', 0.2, 2, 'Driving camera zoom');
+  check(settings?.driving, 'camera_zoom_multiplier', 0.2, 3, 'In-car camera zoom');
   if (typeof settings?.traffic_recovery?.enabled !== 'boolean') errors.push('Traffic jam recovery must be on or off.');
   check(settings?.traffic_recovery, 'jam_timeout_seconds', 5, 300, 'Jam timeout');
   check(settings?.traffic_recovery, 'recovery_spacing_seconds', 0.25, 30, 'Recovery spacing');
@@ -1124,7 +1140,9 @@ function getGameSettings(options) {
   const defaults = recommendedGameSettings();
   if (!settings.road_rules) settings.road_rules = defaults.road_rules;
   settings.population = { ...defaults.population, ...(settings.population || {}) };
-  if (!settings.skin_tone_distribution || Object.keys(defaults.skin_tone_distribution).some(key => !(key in settings.skin_tone_distribution))) settings.skin_tone_distribution = defaults.skin_tone_distribution;
+  settings.camera = { ...defaults.camera, ...(settings.camera || {}) };
+  settings.driving = { ...defaults.driving, ...(settings.driving || {}) };
+  settings.skin_tone_distribution = migrateSkinTones(settings.skin_tone_distribution, defaults.skin_tone_distribution);
   delete settings.community_representation;
   return { ok: true, town_directory: townDirectory, settings, validation: validateGameSettings(settings) };
 }
@@ -1138,7 +1156,9 @@ function updateGameSettings(options) {
   const defaults = recommendedGameSettings();
   if (!settings.road_rules) settings.road_rules = defaults.road_rules;
   settings.population = { ...defaults.population, ...(settings.population || {}) };
-  if (!settings.skin_tone_distribution || Object.keys(defaults.skin_tone_distribution).some(key => !(key in settings.skin_tone_distribution))) settings.skin_tone_distribution = defaults.skin_tone_distribution;
+  settings.camera = { ...defaults.camera, ...(settings.camera || {}) };
+  settings.driving = { ...defaults.driving, ...(settings.driving || {}) };
+  settings.skin_tone_distribution = migrateSkinTones(settings.skin_tone_distribution, defaults.skin_tone_distribution);
   delete settings.community_representation;
   const fields = {
     'traffic-car-count': ['population', 'traffic_car_count', true],
@@ -1154,7 +1174,9 @@ function updateGameSettings(options) {
     'acceleration': ['driving', 'acceleration', false],
     'brake-deceleration': ['driving', 'brake_deceleration', false],
     'steering-rate': ['driving', 'steering_rate', false],
+    'character-zoom': ['camera', 'character_zoom', false],
     'camera-zoom': ['driving', 'camera_zoom_multiplier', false],
+    'in-car-zoom': ['driving', 'camera_zoom_multiplier', false],
     'jam-timeout': ['traffic_recovery', 'jam_timeout_seconds', false]
   };
   let changed = 0;
@@ -1183,7 +1205,7 @@ function updateGameSettings(options) {
       const [shortName, rawValue, ...extra] = String(assignment).split('=');
       const key = `${shortName}_percent`;
       if (extra.length || rawValue === undefined || !allowedTones.has(key)) {
-        throw new Error('--skin-tone must use TONE=PERCENT. Use very_light, light, medium_light, medium, medium_dark, dark, or very_dark.');
+        throw new Error('--skin-tone must use TONE=PERCENT. Use light, medium, or dark.');
       }
       const value = Number(rawValue);
       if (!Number.isFinite(value)) throw new Error('--skin-tone percentages must be numbers.');
@@ -1261,14 +1283,14 @@ Commands:
                 [--robot-count N] [--cbd-robot-percent N]
                 [--drone-count N] [--cbd-drone-percent N]
                 [--forward-speed N] [--reverse-speed N] [--acceleration N]
-                [--brake-deceleration N] [--steering-rate N] [--camera-zoom N]
+                [--brake-deceleration N] [--steering-rate N]
+                [--character-zoom N] [--in-car-zoom N]
                 [--jam-recovery on|off] [--jam-timeout N] [--json]
                 [--driving-side left|right]
                 [--skin-tone TONE=PERCENT] (repeat for multiple tones)
                 [--equalize-skin-tones]
 
-Skin tone names: very_light, light, medium_light, medium, medium_dark, dark,
-                 very_dark. Values must total 100.
+Skin tone names: light, medium, dark. Values must total 100.
 
 The CLI and Creator Studio GUI use the same documented content-pack files.
 Local LLMs are not exposed here; they are reserved for NPC dialogue at runtime.`;

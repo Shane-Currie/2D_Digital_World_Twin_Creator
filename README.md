@@ -2,9 +2,9 @@
 
 
 
-# 2D Digital World Twin Creator v1.2
+# 2D Digital World Twin Creator v1.2 — completed
 
-**v1.2 development started — 13 September 2026.** This version begins from the completed v1.1 release. The separate v1.1 folder and published release remain preserved.
+**v1.2 completed — 16 September 2026.** This version began from the completed v1.1 release. Both v1.1 and v1.2 remain preserved; active development now continues separately in v1.3.
 
 Project Website: https://www.shanescomputing.com.au/2D_Digital_World_Twin_Creator.html
 

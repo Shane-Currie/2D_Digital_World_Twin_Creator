@@ -93,17 +93,38 @@ try {
   assert.strictEqual(defaultSettings.settings.population.traffic_car_count, 150);
   assert.strictEqual(defaultSettings.settings.population.cbd_car_percent, 65);
   assert.strictEqual(defaultSettings.settings.road_rules.driving_side, 'left');
-  assert(Math.abs(defaultSettings.settings.skin_tone_distribution.dark_percent - (100 / 7)) < 0.001);
+  assert(Math.abs(defaultSettings.settings.skin_tone_distribution.dark_percent - (100 / 3)) < 0.001);
   assert.strictEqual(defaultSettings.settings.population.robot_count, 20);
   assert.strictEqual(defaultSettings.settings.population.cbd_robot_percent, 100);
   assert.strictEqual(defaultSettings.settings.population.drone_count, 10);
   assert.strictEqual(defaultSettings.settings.population.cbd_drone_percent, 90);
+  assert.strictEqual(defaultSettings.settings.camera.character_zoom, 2);
+  assert.strictEqual(defaultSettings.settings.driving.camera_zoom_multiplier, 1.5);
+  const legacyTownDirectory = path.join(temporaryWorkspace, 'legacy_settings_town');
+  fs.mkdirSync(legacyTownDirectory);
+  fs.copyFileSync(path.join(imported.town_directory, 'town.json'), path.join(legacyTownDirectory, 'town.json'));
+  const legacySettings = JSON.parse(fs.readFileSync(path.join(imported.town_directory, 'game_settings.json'), 'utf8'));
+  legacySettings.skin_tone_distribution = {
+    very_light_percent: 5, light_percent: 10, medium_light_percent: 15,
+    medium_percent: 20, medium_dark_percent: 15, dark_percent: 20, very_dark_percent: 15
+  };
+  delete legacySettings.camera;
+  delete legacySettings.driving.camera_zoom_multiplier;
+  fs.writeFileSync(path.join(legacyTownDirectory, 'game_settings.json'), `${JSON.stringify(legacySettings, null, 2)}\n`);
+  const migratedLegacySettings = run(['get-settings', '--town', legacyTownDirectory]).settings;
+  assert.deepStrictEqual(migratedLegacySettings.skin_tone_distribution, {
+    light_percent: 30, medium_percent: 35, dark_percent: 35
+  });
+  assert.strictEqual(migratedLegacySettings.camera.character_zoom, 2);
+  assert.strictEqual(migratedLegacySettings.driving.camera_zoom_multiplier, 1.5);
+  fs.rmSync(legacyTownDirectory, { recursive: true, force: true });
   const changedSettings = run([
     'set-settings', '--town', imported.town_directory,
     '--traffic-car-count', '225', '--pedestrian-count', '175',
     '--cbd-car-percent', '72', '--jam-recovery', 'off', '--driving-side', 'right',
     '--robot-count', '30', '--cbd-robot-percent', '80',
-    '--drone-count', '12', '--cbd-drone-percent', '75', '--equalize-skin-tones'
+    '--drone-count', '12', '--cbd-drone-percent', '75', '--equalize-skin-tones',
+    '--character-zoom', '1.6', '--in-car-zoom', '1.3'
   ]);
   assert.strictEqual(changedSettings.settings.population.traffic_car_count, 225);
   assert.strictEqual(changedSettings.settings.population.pedestrian_count, 175);
@@ -114,6 +135,13 @@ try {
   assert.strictEqual(changedSettings.settings.population.cbd_robot_percent, 80);
   assert.strictEqual(changedSettings.settings.population.drone_count, 12);
   assert.strictEqual(changedSettings.settings.population.cbd_drone_percent, 75);
+  assert.strictEqual(changedSettings.settings.camera.character_zoom, 1.6);
+  assert.strictEqual(changedSettings.settings.driving.camera_zoom_multiplier, 1.3);
+  const rejectedZoom = spawnSync(process.execPath, [
+    cli, 'set-settings', '--town', imported.town_directory, '--character-zoom', '3.1', '--json'
+  ], { encoding: 'utf8' });
+  assert.notStrictEqual(rejectedZoom.status, 0);
+  assert(JSON.parse(rejectedZoom.stderr).error.includes('between 0.2 and 3'));
   const rejectedSettings = spawnSync(process.execPath, [
     cli, 'set-settings', '--town', imported.town_directory, '--cbd-car-percent', '101', '--json'
   ], { encoding: 'utf8' });
@@ -125,7 +153,7 @@ try {
   ], { encoding: 'utf8' });
   assert.notStrictEqual(rejectedToneTotal.status, 0);
   assert(JSON.parse(rejectedToneTotal.stderr).error.includes('must total 100%'));
-  assert(Math.abs(run(['get-settings', '--town', imported.town_directory]).settings.skin_tone_distribution.dark_percent - (100 / 7)) < 0.001);
+  assert(Math.abs(run(['get-settings', '--town', imported.town_directory]).settings.skin_tone_distribution.dark_percent - (100 / 3)) < 0.001);
 
   const unsafeWorkspace = path.join(temporaryWorkspace, 'unsafe');
   const rejectedSpawn = spawnSync(process.execPath, [
@@ -156,7 +184,7 @@ try {
   assert(appText.includes('Local models are used only'));
   assert(appText.includes('_show_game_settings_page'));
   assert(appText.includes('Restore recommended settings'));
-  console.log(JSON.stringify({ passed: true, checks: 87, imported_town: imported.town_directory }));
+  console.log(JSON.stringify({ passed: true, checks: 95, imported_town: imported.town_directory }));
 } finally {
   fs.rmSync(temporaryWorkspace, { recursive: true, force: true });
 }

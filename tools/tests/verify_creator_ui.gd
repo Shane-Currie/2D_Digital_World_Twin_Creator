@@ -94,7 +94,11 @@ func _run_checks() -> void:
 	await process_frame
 	assert(studio.driving_side_option != null, "The Game settings road-side choice is missing.")
 	assert(studio.settings_controls.has("skin_tone_distribution.medium_percent"), "Skin pigmentation controls are missing.")
-	assert(studio.settings_controls.has("skin_tone_distribution.very_dark_percent"), "The full skin pigmentation range is missing.")
+	assert(studio.settings_controls.has("skin_tone_distribution.light_percent"), "The light skin pigmentation control is missing.")
+	assert(studio.settings_controls.has("skin_tone_distribution.dark_percent"), "The dark skin pigmentation control is missing.")
+	assert(not studio.settings_controls.has("skin_tone_distribution.very_dark_percent"), "The superseded seven-tone controls are still visible.")
+	assert(studio.settings_controls.has("camera.character_zoom"), "The on-foot camera zoom control is missing from Game Settings.")
+	assert(studio.settings_controls.has("driving.camera_zoom_multiplier"), "The in-car camera zoom control is missing from Game Settings.")
 	assert(studio.equalize_skin_tones_button.button_pressed, "Equalize should be selected by default.")
 	assert(studio.skin_tone_total_label.text.contains("100%"), "The skin tone total is not shown.")
 	studio.settings_controls["skin_tone_distribution.medium_percent"].value = 25
@@ -104,9 +108,16 @@ func _run_checks() -> void:
 	assert(studio.settings_controls["population.cbd_robot_percent"].value == 100)
 	assert(studio.settings_controls["population.drone_count"].value == 10)
 	assert(studio.settings_controls["population.cbd_drone_percent"].value == 90)
+	studio._restore_recommended_settings()
+	studio.settings_controls["camera.character_zoom"].value = 1.65
+	studio.settings_controls["driving.camera_zoom_multiplier"].value = 1.25
+	studio._save_game_settings()
+	studio._load_game_settings()
+	assert(is_equal_approx(studio.settings_controls["camera.character_zoom"].value, 1.65), "The chosen walking zoom was not saved and reloaded.")
+	assert(is_equal_approx(studio.settings_controls["driving.camera_zoom_multiplier"].value, 1.25), "The chosen car zoom was not saved and reloaded.")
 	studio._show_message("Readable message", "This deliberately long plain-language message must wrap inside the dialog so a creator can read every part of it without text extending off the window.")
 	assert(studio.message_dialog.get_label().autowrap_mode == TextServer.AUTOWRAP_WORD_SMART, "Long messages do not wrap.")
 
-	print("CREATOR UI PASSED: start workflow, create readiness, clipping/zoom, road side, skin tone controls and total validation.")
+	print("CREATOR UI PASSED: start workflow, create readiness, clipping/zoom, road side, skin tones and saved walking/car camera values.")
 	studio.queue_free()
 	quit(0)

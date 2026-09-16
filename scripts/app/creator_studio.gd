@@ -418,7 +418,7 @@ func _show_town_import_page() -> void:
 func _show_game_settings_page() -> void:
 	_clear_content()
 	settings_controls.clear()
-	content_area.add_child(_page_heading("Game settings", "Change how busy the town feels and how the player's vehicle handles. No code is required."))
+	content_area.add_child(_page_heading("Game settings", "Choose town populations, camera views and vehicle handling. No code is required."))
 
 	var town_row := HBoxContainer.new()
 	content_area.add_child(town_row)
@@ -462,15 +462,15 @@ func _show_game_settings_page() -> void:
 	equalize_skin_tones_button.button_pressed = true
 	equalize_skin_tones_button.toggled.connect(_on_equalize_skin_tones_toggled)
 	form.add_child(equalize_skin_tones_button)
-	form.add_child(_settings_field("skin_tone_distribution", "very_light_percent", "Very light", "Visual skin pigmentation tone.", 0, 100, 0.01, "%"))
 	form.add_child(_settings_field("skin_tone_distribution", "light_percent", "Light", "Visual skin pigmentation tone.", 0, 100, 0.01, "%"))
-	form.add_child(_settings_field("skin_tone_distribution", "medium_light_percent", "Medium-light", "Visual skin pigmentation tone.", 0, 100, 0.01, "%"))
 	form.add_child(_settings_field("skin_tone_distribution", "medium_percent", "Medium", "Visual skin pigmentation tone.", 0, 100, 0.01, "%"))
-	form.add_child(_settings_field("skin_tone_distribution", "medium_dark_percent", "Medium-dark", "Visual skin pigmentation tone.", 0, 100, 0.01, "%"))
 	form.add_child(_settings_field("skin_tone_distribution", "dark_percent", "Dark", "Visual skin pigmentation tone.", 0, 100, 0.01, "%"))
-	form.add_child(_settings_field("skin_tone_distribution", "very_dark_percent", "Very dark", "Visual skin pigmentation tone.", 0, 100, 0.01, "%"))
 	skin_tone_total_label = _label("Total: 100%", 13, ACCENT)
 	form.add_child(skin_tone_total_label)
+
+	form.add_child(_settings_group_heading("Camera view", "Set the view separately for walking and driving. 1× is the ordinary scale; larger values bring the camera closer."))
+	form.add_child(_settings_field("camera", "character_zoom", "On-foot character zoom", "Higher values enlarge the player and nearby town while walking.", 0.2, 3, 0.05, "×"))
+	form.add_child(_settings_field("driving", "camera_zoom_multiplier", "In-car camera zoom", "Independent of on-foot zoom. Higher values bring the road closer while driving.", 0.2, 3, 0.05, "×"))
 
 	form.add_child(_settings_group_heading("Player vehicle", "These values control the same wagon handling used by the v1.3 game. Speeds are shown in the game's internal units."))
 	form.add_child(_settings_field("driving", "forward_speed", "Maximum forward speed", "Higher values make the wagon faster.", 1, 400, 1, ""))
@@ -480,7 +480,6 @@ func _show_game_settings_page() -> void:
 	form.add_child(_settings_field("driving", "coast_deceleration", "Coasting slowdown", "How quickly the wagon slows when no pedal is pressed.", 1, 400, 1, ""))
 	form.add_child(_settings_field("driving", "brake_deceleration", "Brake strength", "Higher values stop the wagon more sharply.", 1, 800, 1, ""))
 	form.add_child(_settings_field("driving", "steering_rate", "Steering speed", "How quickly the wagon turns.", 0.1, 8, 0.1, ""))
-	form.add_child(_settings_field("driving", "camera_zoom_multiplier", "Driving camera zoom", "Smaller values show more of the road.", 0.2, 2, 0.05, "×"))
 
 	form.add_child(_settings_group_heading("Traffic jam recovery", "NPC cars that cannot make progress can be safely moved to another clear lane."))
 	jam_recovery_check = CheckBox.new()

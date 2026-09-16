@@ -8,6 +8,9 @@ const PlayerVehicleScript = preload("res://scripts/runtime/runtime_player_vehicl
 const PopulationScript = preload("res://scripts/runtime/runtime_population.gd")
 const TracksScript = preload("res://scripts/runtime/runtime_tracks.gd")
 const BuildingInformationScript = preload("res://scripts/places/osm_building_information.gd")
+const ActorArt = preload("res://scripts/runtime/runtime_actor_art.gd")
+const GAME_VIEW_SIZE := Vector2i(640, 360)
+const PLAY_AREA_BOTTOM := 330.0
 
 var town_directory := ""
 var town: Dictionary = {}
@@ -37,8 +40,8 @@ var overview_base_zoom := 1.0
 var overview_zoom := 1.0
 var map_dragging := false
 var capture_camera_locked := false
-var gameplay_zoom := 1.0
-var driving_zoom_multiplier := 0.8
+var character_zoom := 2.0
+var in_car_zoom := 1.5
 var notice_text := ""
 var notice_time := 0.0
 var location_text := ""
@@ -71,7 +74,10 @@ func _ready() -> void:
 	var projection: Dictionary = collision_data.projection
 	var scale: float = collision_data.runtime_scale.pixels_per_metre
 	var driving_settings: Dictionary = settings_result.data.get("driving", {})
-	driving_zoom_multiplier = float(driving_settings.get("camera_zoom_multiplier", 0.8))
+	character_zoom = float(settings_result.data.get("camera", {}).get("character_zoom", 2.0))
+	# Retain the established JSON key for older towns, but treat its value as
+	# an independent in-car camera zoom rather than a walking-view multiplier.
+	in_car_zoom = float(driving_settings.get("camera_zoom_multiplier", 1.5))
 
 	renderer = WorldRendererScript.new()
 	add_child(renderer)
@@ -125,7 +131,7 @@ func _ready() -> void:
 	var traffic_obstacles: Array[Node2D] = [player, wagon]
 	population.set_gameplay_obstacles(traffic_obstacles)
 	camera = Camera2D.new()
-	camera.zoom = Vector2.ONE * gameplay_zoom
+	camera.zoom = Vector2.ONE * character_zoom
 	camera.position = player.position
 	camera.position_smoothing_enabled = true
 	camera.position_smoothing_speed = 7.0
@@ -169,7 +175,7 @@ func _process(delta: float) -> void:
 	if underpass_index >= 0 and not wagon.crossing_travel.active.is_empty(): wagon.visible = false
 	if not overview and not capture_camera_locked:
 		camera.position = focus.position + focus.velocity * 0.35
-		camera.zoom = Vector2.ONE * gameplay_zoom * (driving_zoom_multiplier if occupied else 1.0)
+		camera.zoom = Vector2.ONE * (in_car_zoom if occupied else character_zoom)
 	renderer.update_street_label_presentation(camera.zoom.x, overview_zoom, overview)
 	collisions.update_streaming(focus.position)
 	var moving: bool = absf(wagon.speed) > 1.0 if occupied else player.walking
@@ -198,13 +204,13 @@ func _process(delta: float) -> void:
 		location_text = _location_heading(focus.position)
 		location_timer = 0.15
 	if overview:
-		hud_label.size.x = 198.0
+		hud_label.size.x = 425.0
 		hud_label.text = "MAP %d×\n%s" % [roundi(overview_zoom), population.counts_text()]
 	else:
-		hud_label.size.x = 322.0
+		hud_label.size.x = 560.0
 		hud_label.text = location_text
 	hud_status.text = status_text
-	hud_help.text = "Wheel/−/+ zoom · drag empty ground · click building · M close" if overview else "Hover/click buildings · M map · E interact · Esc close"
+	hud_help.text = "Wheel/−/+ zoom · drag empty ground · click building · M close · F11 full screen" if overview else "Hover/click buildings · M map · E interact · F11 full screen · Esc close"
 	map_coordinates.visible = overview
 	if overview:
 		# Invert the rendered camera transform so smoothing cannot make the
@@ -249,12 +255,36 @@ func _verify_runtime() -> void:
 		+ int(population_settings.get("drone_count", 0))
 	)
 	assert(population.agents.size() == expected_population)
+	var gender_counts := {"man": 0, "woman": 0}
+	var age_counts := {"young": 0, "adult": 0, "older": 0}
+	var vehicle_styles := {"sedan": 0, "wagon": 0, "ute": 0}
+	var vehicle_assets := {}
+	for road_user in population.agents:
+		if str(road_user.kind) == "person":
+			gender_counts[str(road_user.gender)] += 1
+			age_counts[str(road_user.age_group)] += 1
+			assert(not ActorArt.sprite(str(road_user.npc_asset)).is_empty())
+		elif str(road_user.kind) == "traffic":
+			vehicle_styles[str(road_user.vehicle_style)] += 1
+			vehicle_assets[str(road_user.vehicle_asset)] = true
+	assert(gender_counts.woman == ceili(float(population_settings.get("pedestrian_count", 0)) / 2.0))
+	assert(gender_counts.man == int(population_settings.get("pedestrian_count", 0)) - gender_counts.woman)
+	for style_name in vehicle_styles:
+		assert(vehicle_styles[style_name] > 0, "The traffic population lost a vehicle body style: %s" % style_name)
+	for age_name in age_counts:
+		assert(age_counts[age_name] > 0, "The NPC population lost an age group: %s" % age_name)
+	assert(vehicle_assets.size() >= mini(12, int(population_settings.get("traffic_car_count", 0))), "The NPC traffic lost its fixed car variants.")
+	for artwork_name in ActorArt.PATHS:
+		assert(not ActorArt.sprite(str(artwork_name)).is_empty(), "A transparent game sprite could not load: %s" % artwork_name)
+	print("ACTOR ART CHECK PASSED: %d women / %d men; %s age groups; %s car body styles; %d static cars" % [gender_counts.woman, gender_counts.man, age_counts, vehicle_styles, vehicle_assets.size()])
 	assert(population.driving_side == str(game_settings.get("road_rules", {}).get("driving_side", "left")))
+	assert(is_equal_approx(character_zoom, float(game_settings.get("camera", {}).get("character_zoom", 1.0))))
+	assert(is_equal_approx(in_car_zoom, float(game_settings.get("driving", {}).get("camera_zoom_multiplier", 0.8))))
 	assert(is_equal_approx(wagon.forward_speed, float(game_settings.get("driving", {}).get("forward_speed", 108.0))))
 	assert(player.get_script() == PlayerScript and wagon.get_script() == PlayerVehicleScript)
 	assert(collisions.loaded_chunks.size() > 0)
-	assert(get_window().content_scale_size == Vector2i(384, 240))
-	assert(hud_label.position == Vector2(8, 3) and hud_status.position == Vector2(8, 212))
+	assert(get_window().content_scale_size == GAME_VIEW_SIZE)
+	assert(hud_label.position == Vector2(8, 3) and hud_status.position == Vector2(8, 332))
 	assert(renderer.visual_style_version == "v1.3-scaled-transport-2")
 	assert(renderer.water_areas.size() == collision_data.get("water_areas", []).size())
 	assert(renderer.street_label_count > 0, "The imported test map should expose OSM street names.")
@@ -268,12 +298,12 @@ func _verify_runtime() -> void:
 	assert(str(information_record.source_attribution) == "© OpenStreetMap contributors")
 	assert(building_popup != null and building_popup_label != null)
 	pinned_building_id = str(information_record.feature_id)
-	building_popup_anchor = Vector2(380.0, 205.0)
+	building_popup_anchor = Vector2(636.0, 325.0)
 	_update_building_popup(false)
 	assert(building_popup.visible and building_popup_label.text.contains("© OpenStreetMap contributors"))
 	assert(building_popup.position.x >= 4.0 and building_popup.position.y >= 36.0)
 	assert(
-		building_popup.position.x + building_popup.size.x <= 380.0 and building_popup.position.y + building_popup.size.y <= 207.0,
+		building_popup.position.x + building_popup.size.x <= 636.0 and building_popup.position.y + building_popup.size.y <= 327.0,
 		"Building popup escaped the safe play area: position=%s size=%s" % [building_popup.position, building_popup.size]
 	)
 	pinned_building_id = ""
@@ -290,11 +320,17 @@ func _verify_runtime() -> void:
 	assert(is_equal_approx(camera.zoom.x, fitted_zoom))
 	_toggle_map()
 	assert(not overview and not map_buttons.visible)
+	_process(0.0)
+	assert(is_equal_approx(camera.zoom.x, character_zoom), "Closing the map did not restore the creator's walking zoom.")
 	# Exercise the inherited enter/exit rules without keyboard input.
 	player.position = wagon.driver_door()
 	_toggle_wagon()
 	assert(occupied and wagon.occupied and not player.visible)
+	_process(0.0)
+	assert(is_equal_approx(camera.zoom.x, in_car_zoom), "Entering the wagon did not apply the independent in-car zoom.")
 	_toggle_wagon()
+	_process(0.0)
+	assert(is_equal_approx(camera.zoom.x, character_zoom), "Leaving the wagon did not restore the on-foot zoom.")
 	assert(not occupied and not wagon.occupied and player.visible and player.collision_layer == 2)
 	var bridge_overlap: Dictionary = renderer.bridge_road_overlap()
 	if not bridge_overlap.is_empty():
@@ -324,6 +360,10 @@ func _verify_runtime() -> void:
 func _capture_runtime(path_value: String) -> void:
 	# Allow the canvas, camera and first population positions to render before the
 	# focused visual check captures the actual running scene.
+	if OS.get_cmdline_user_args().has("--capture-fullscreen"):
+		_toggle_fullscreen()
+		assert(get_window().mode == Window.MODE_FULLSCREEN, "The game failed to switch to full screen.")
+		print("GAME VIEW CHECK PASSED: full-screen 16:9 runtime window")
 	var capture_focus := _argument_value("--capture-focus")
 	if capture_focus in ["tunnel", "tunnel-entry", "tunnel-exit"]:
 		var surface_position: Vector2 = wagon.position
@@ -435,6 +475,35 @@ func _capture_runtime(path_value: String) -> void:
 		capture_camera_locked = true
 		camera.position_smoothing_enabled = false
 		camera.position = player.position
+	elif capture_focus == "driving-camera":
+		occupied = true
+		wagon.occupied = true
+		player.active = false
+		capture_camera_locked = true
+		camera.position_smoothing_enabled = false
+		camera.position = wagon.position
+		camera.zoom = Vector2.ONE * in_car_zoom
+	elif capture_focus == "crowd":
+		# Select a real, current concentration of NPCs and NPRs. This moves
+		# only the review camera, never an agent or the creator's saved start.
+		var best_centre: Vector2 = player.position
+		var best_score := -1
+		for candidate in population.agents:
+			if str(candidate.kind) != "robot":
+				continue
+			var candidate_position: Vector2 = candidate.position
+			var score := 0
+			for nearby in population.agents:
+				if candidate_position.distance_to(nearby.position) <= 260.0:
+					score += 1
+			if score > best_score:
+				best_score = score
+				best_centre = candidate_position
+		capture_camera_locked = true
+		camera.position_smoothing_enabled = false
+		camera.position = best_centre
+		camera.zoom = Vector2.ONE * character_zoom
+		print("ACTOR ART CAPTURE: %d actual nearby town agents" % best_score)
 	elif capture_focus == "transport":
 		var preview: Dictionary = renderer.transport_preview_area()
 		assert(not preview.is_empty(), "The capture map needs a mapped surface car park with room for inferred bay guides.")
@@ -511,7 +580,7 @@ func _fit_camera_to_path(points: PackedVector2Array) -> void:
 		bounds = bounds.expand(point)
 	bounds = bounds.grow(36.0)
 	camera.position = bounds.get_center()
-	var zoom := minf(340.0 / maxf(bounds.size.x, 1.0), 150.0 / maxf(bounds.size.y, 1.0))
+	var zoom := minf(590.0 / maxf(bounds.size.x, 1.0), 255.0 / maxf(bounds.size.y, 1.0))
 	camera.zoom = Vector2.ONE * clampf(zoom, 0.08, 2.0)
 
 
@@ -541,7 +610,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		camera.position -= event.relative / camera.zoom
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_ESCAPE:
+		if event.keycode == KEY_F11:
+			_toggle_fullscreen()
+		elif event.keycode == KEY_ESCAPE:
 			get_tree().quit()
 		elif event.keycode == KEY_M:
 			_toggle_map()
@@ -632,12 +703,12 @@ func _toggle_map() -> void:
 		_fit_overview()
 	else:
 		camera.position = wagon.position if occupied else player.position
-		camera.zoom = Vector2.ONE * gameplay_zoom * (driving_zoom_multiplier if occupied else 1.0)
+		camera.zoom = Vector2.ONE * (in_car_zoom if occupied else character_zoom)
 
 
 func _fit_overview() -> void:
 	# Reserve the top and bottom HUD bars while fitting maps of any dimensions.
-	overview_base_zoom = minf(360.0 / renderer.world_bounds.size.x, 170.0 / renderer.world_bounds.size.y)
+	overview_base_zoom = minf(605.0 / renderer.world_bounds.size.x, 270.0 / renderer.world_bounds.size.y)
 	overview_zoom = 1.0
 	camera.position = renderer.world_bounds.get_center()
 	_apply_overview_zoom()
@@ -670,7 +741,7 @@ func _build_hud() -> void:
 	var canvas := CanvasLayer.new()
 	canvas.layer = 20
 	add_child(canvas)
-	for panel_rect in [Rect2(0, 0, 384, 34), Rect2(0, 210, 384, 30)]:
+	for panel_rect in [Rect2(0, 0, 640, 34), Rect2(0, 330, 640, 30)]:
 		var panel := ColorRect.new()
 		panel.color = Color("263d31")
 		panel.position = panel_rect.position
@@ -679,24 +750,24 @@ func _build_hud() -> void:
 		canvas.add_child(panel)
 	hud_label = Label.new()
 	hud_label.position = Vector2(8, 3)
-	hud_label.size = Vector2(198, 30)
+	hud_label.size = Vector2(425, 30)
 	hud_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hud_label.add_theme_font_size_override("font_size", 8)
 	hud_label.add_theme_color_override("font_color", Color("f3edcf"))
 	canvas.add_child(hud_label)
 	hud_status = Label.new()
-	hud_status.position = Vector2(8, 212)
+	hud_status.position = Vector2(8, 332)
 	hud_status.add_theme_font_size_override("font_size", 8)
 	hud_status.add_theme_color_override("font_color", Color("f3edcf"))
 	canvas.add_child(hud_status)
 	hud_help = Label.new()
-	hud_help.position = Vector2(8, 225)
+	hud_help.position = Vector2(8, 345)
 	hud_help.add_theme_font_size_override("font_size", 8)
 	hud_help.add_theme_color_override("font_color", Color("f3edcf"))
 	canvas.add_child(hud_help)
 	map_coordinates = Label.new()
 	map_coordinates.name = "MapCoordinates"
-	map_coordinates.position = Vector2(244, 183)
+	map_coordinates.position = Vector2(500, 303)
 	map_coordinates.size = Vector2(136, 24)
 	map_coordinates.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	map_coordinates.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -711,13 +782,13 @@ func _build_hud() -> void:
 	canvas.add_child(map_coordinates)
 	var north := Label.new()
 	north.text = "N ↑  v1.2"
-	north.position = Vector2(337, 1)
+	north.position = Vector2(592, 1)
 	north.add_theme_font_size_override("font_size", 8)
 	north.add_theme_color_override("font_color", Color("f3edcf"))
 	north.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	canvas.add_child(north)
 	map_buttons = HBoxContainer.new()
-	map_buttons.position = Vector2(205, 10)
+	map_buttons.position = Vector2(455, 10)
 	map_buttons.visible = false
 	canvas.add_child(map_buttons)
 	for caption in ["−", "+", "Fit", "You"]:
@@ -787,8 +858,8 @@ func _update_building_popup(covered_view: bool) -> void:
 	building_popup.size = popup_size
 	var desired := building_popup_anchor + Vector2(10.0, 8.0)
 	building_popup.position = Vector2(
-		clampf(desired.x, 4.0, 380.0 - popup_size.x),
-		clampf(desired.y, 36.0, 207.0 - popup_size.y)
+		clampf(desired.x, 4.0, 636.0 - popup_size.x),
+		clampf(desired.y, 36.0, 327.0 - popup_size.y)
 	)
 	building_popup.show()
 
@@ -799,7 +870,7 @@ func _building_at_screen(screen_position: Vector2) -> Dictionary:
 
 
 func _screen_can_select_building(screen_position: Vector2) -> bool:
-	return screen_position.x >= 0.0 and screen_position.x <= 384.0 and screen_position.y >= 34.0 and screen_position.y <= 210.0
+	return screen_position.x >= 0.0 and screen_position.x <= 640.0 and screen_position.y >= 34.0 and screen_position.y <= PLAY_AREA_BOTTOM
 
 
 func _add_start_marker() -> void:
@@ -836,12 +907,18 @@ func _fail(message: String) -> void:
 
 func _configure_runtime_presentation() -> void:
 	# Creator Studio keeps its roomy 1280x800 editing interface. Play tests switch
-	# to the same 384x240 logical canvas as v1.3 and scale it with crisp pixels.
+	# to a 640x360 (16:9) canvas: a larger actual town view and a clean 3x
+	# pixel scale on a 1920x1080 full-screen display.
 	# This is independent of the imported town's physical size or coordinates.
 	var runtime_window := get_window()
-	runtime_window.content_scale_size = Vector2i(384, 240)
+	runtime_window.content_scale_size = GAME_VIEW_SIZE
 	runtime_window.content_scale_mode = Window.CONTENT_SCALE_MODE_VIEWPORT
 	runtime_window.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
+
+
+func _toggle_fullscreen() -> void:
+	var runtime_window := get_window()
+	runtime_window.mode = Window.MODE_WINDOWED if runtime_window.mode == Window.MODE_FULLSCREEN else Window.MODE_FULLSCREEN
 
 
 func _short_location_name(location_label: String) -> String:

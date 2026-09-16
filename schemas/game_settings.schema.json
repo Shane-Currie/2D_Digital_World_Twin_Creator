@@ -34,18 +34,20 @@
       "type": "object",
       "description": "Creator-selected visual skin tone distribution only. These values do not affect any other NPC setting.",
       "additionalProperties": false,
-      "required": [
-        "very_light_percent", "light_percent", "medium_light_percent", "medium_percent",
-        "medium_dark_percent", "dark_percent", "very_dark_percent"
-      ],
+      "required": ["light_percent", "medium_percent", "dark_percent"],
       "properties": {
-        "very_light_percent": { "$ref": "#/$defs/percentage" },
         "light_percent": { "$ref": "#/$defs/percentage" },
-        "medium_light_percent": { "$ref": "#/$defs/percentage" },
         "medium_percent": { "$ref": "#/$defs/percentage" },
-        "medium_dark_percent": { "$ref": "#/$defs/percentage" },
-        "dark_percent": { "$ref": "#/$defs/percentage" },
-        "very_dark_percent": { "$ref": "#/$defs/percentage" }
+        "dark_percent": { "$ref": "#/$defs/percentage" }
+      }
+    },
+    "camera": {
+      "type": "object",
+      "description": "Independent on-foot view. New and migrated towns default to 2x.",
+      "additionalProperties": false,
+      "required": ["character_zoom"],
+      "properties": {
+        "character_zoom": { "type": "number", "minimum": 0.2, "maximum": 3, "default": 2 }
       }
     },
     "driving": {
@@ -60,7 +62,7 @@
         "coast_deceleration": { "type": "number", "exclusiveMinimum": 0, "maximum": 400, "default": 30 },
         "brake_deceleration": { "type": "number", "exclusiveMinimum": 0, "maximum": 800, "default": 140 },
         "steering_rate": { "type": "number", "minimum": 0.1, "maximum": 8, "default": 1.9 },
-        "camera_zoom_multiplier": { "type": "number", "minimum": 0.2, "maximum": 2, "default": 0.8 }
+        "camera_zoom_multiplier": { "type": "number", "minimum": 0.2, "maximum": 3, "default": 1.5, "description": "Legacy key retained for old towns; an independent absolute in-car zoom in v1.2." }
       }
     },
     "traffic_recovery": {

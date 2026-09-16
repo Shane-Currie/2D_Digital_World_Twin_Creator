@@ -1,6 +1,8 @@
 class_name RuntimePlayerCharacter
 extends CharacterBody2D
 
+const ActorArt = preload("res://scripts/runtime/runtime_actor_art.gd")
+
 ## The four-direction pixel character used by Generational Australian Survival,
 ## kept data-independent so the same player can appear in every imported town.
 var facing := Vector2.DOWN
@@ -15,6 +17,7 @@ var crossing_travel = preload("res://scripts/crossings/crossing_travel.gd").new(
 
 
 func _ready() -> void:
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	collision_layer = 2
 	collision_mask = 1 | 4
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
@@ -85,6 +88,16 @@ func _pixel(x: int, y: int, width: int, height: int, color: String) -> void:
 
 func _draw() -> void:
 	if not active:
+		return
+	var artwork: Dictionary = ActorArt.sprite("player")
+	if not artwork.is_empty():
+		var stride := sin(animation_time * 19.0) if walking else 0.0
+		var lift := absf(stride) * 1.4 * art_scale
+		var lean := stride * 0.04 if walking else 0.0
+		draw_circle(Vector2.ZERO, 4.0 * art_scale, Color(0.05, 0.10, 0.07, 0.25))
+		draw_set_transform(Vector2(0.0, -lift), lean, Vector2.ONE)
+		draw_texture_rect_region(artwork.texture, Rect2(Vector2(-7.0, -27.0) * art_scale, Vector2(14.0, 27.0) * art_scale), artwork.region)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		return
 	var step := int(animation_time * 9.0) % 4
 	var foot := 1 if walking and step == 1 else (-1 if walking and step == 3 else 0)

@@ -4,6 +4,8 @@ extends Node2D
 const ProjectionScript = preload("res://scripts/runtime/town_projection.gd")
 const TrafficFlowScript = preload("res://scripts/runtime/traffic/runtime_traffic_flow.gd")
 const CrossingSafetyScript = preload("res://scripts/runtime/pedestrians/runtime_crossing_safety.gd")
+const ActorArt = preload("res://scripts/runtime/runtime_actor_art.gd")
+const GameSettingsStoreScript = preload("res://scripts/settings/game_settings_store.gd")
 
 var agents: Array[Dictionary] = []
 var graphs: Dictionary = {}
@@ -20,21 +22,24 @@ var active_land_bridge_id := ""
 var active_bridge_source_ids: Dictionary = {}
 var elapsed := 0.0
 
-const SKIN_TONE_KEYS := [
-	"very_light_percent", "light_percent", "medium_light_percent", "medium_percent",
-	"medium_dark_percent", "dark_percent", "very_dark_percent"
-]
+const SKIN_TONE_KEYS := ["light_percent", "medium_percent", "dark_percent"]
 const SKIN_TONE_COLORS := [
-	Color("#f4d6bd"), Color("#e8bd99"), Color("#d6a177"), Color("#bd8159"),
-	Color("#96603f"), Color("#70442d"), Color("#4b2d21")
+	Color("#e8bd99"), Color("#bd8159"), Color("#70442d")
+]
+const AGE_GROUPS := ["young", "adult", "older"]
+const CAR_VARIANTS := [
+	"car_sedan_blue", "car_sedan_red", "car_sedan_silver", "car_sedan_green",
+	"car_wagon_white", "car_wagon_blue", "car_wagon_bronze", "car_wagon_grey",
+	"car_ute_red", "car_ute_blue", "car_ute_white", "car_ute_green"
 ]
 
 
 func setup(navigation: Dictionary, settings: Dictionary, projection: Dictionary, scale: float, cbd_bounds: Dictionary, town_seed: String, map_bounds: Dictionary = {}) -> void:
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	rng.seed = hash(town_seed)
 	agents.clear()
 	driving_side = str(settings.get("road_rules", {}).get("driving_side", "left"))
-	skin_tone_distribution = settings.get("skin_tone_distribution", {})
+	skin_tone_distribution = GameSettingsStoreScript.migrate_skin_tones(settings.get("skin_tone_distribution", {}))
 	traffic_flow.configure(settings)
 	crossing_safety.reset()
 	graphs = {
@@ -53,11 +58,14 @@ func setup(navigation: Dictionary, settings: Dictionary, projection: Dictionary,
 func _process(delta: float) -> void:
 	elapsed += delta
 	for agent in agents:
-		agent.phase = float(agent.get("phase", 0.0)) + delta
+		var previous_position: Vector2 = agent.position
 		if str(agent.kind) == "traffic":
 			_advance_traffic(agent, delta)
 		else:
 			_advance_agent(agent, delta)
+		agent["moving"] = previous_position.distance_to(agent.position) > 0.1
+		if bool(agent.moving) or str(agent.kind) == "drone":
+			agent.phase = float(agent.get("phase", 0.0)) + delta
 	queue_redraw()
 
 
@@ -228,16 +236,23 @@ func _bridge_id_is_visible(bridge_id: String) -> bool:
 
 func _draw_traffic_car(agent: Dictionary, position: Vector2) -> void:
 	draw_set_transform(position, float(agent.angle) + PI / 2.0, Vector2.ONE)
-	var body: Color = agent.get("body_color", Color("#af5945"))
-	for wheel_position in [Vector2(-8.0, -11.0), Vector2(8.0, -11.0), Vector2(-8.0, 11.0), Vector2(8.0, 11.0)]:
-		draw_rect(Rect2(wheel_position - Vector2(1.5, 3.0), Vector2(3.0, 6.0)), Color("#263d37"))
-	draw_rect(Rect2(-7.0, -18.0, 14.0, 36.0), Color("#293f39"))
-	draw_rect(Rect2(-6.0, -17.0, 12.0, 34.0), body)
-	draw_rect(Rect2(-5.0, -7.0, 10.0, 7.0), Color("#294e58"))
-	draw_rect(Rect2(-4.0, -6.0, 8.0, 2.0), Color("#8cafaa"))
-	draw_rect(Rect2(-5.0, 10.0, 10.0, 4.0), Color("#335961"))
-	draw_rect(Rect2(-5.0, -16.0, 3.0, 2.0), Color("#f6e6ad"))
-	draw_rect(Rect2(2.0, -16.0, 3.0, 2.0), Color("#f6e6ad"))
+	var artwork: Dictionary = ActorArt.sprite(str(agent.get("vehicle_asset", "car_sedan_blue")))
+	if not artwork.is_empty():
+		var car_size := Vector2(16.0, 34.0)
+		match str(agent.get("vehicle_style", "sedan")):
+			"wagon":
+				car_size = Vector2(16.5, 36.0)
+			"ute":
+				car_size = Vector2(17.0, 38.0)
+		draw_circle(Vector2(0.0, 2.0), car_size.x * 0.5, Color(0.05, 0.10, 0.07, 0.18))
+		draw_texture_rect_region(artwork.texture, Rect2(-car_size * 0.5, car_size), artwork.region)
+		if bool(agent.get("moving", false)):
+			var tyre_flash := Color("#90b2b3") if int(float(agent.phase) * 22.0) % 2 == 0 else Color("#2b3538")
+			draw_rect(Rect2(-8.0, -11.0, 1.0, 3.0), tyre_flash)
+			draw_rect(Rect2(7.0, -11.0, 1.0, 3.0), tyre_flash)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
+	draw_rect(Rect2(-8.0, -17.0, 16.0, 34.0), Color("#d34f6a"))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
@@ -272,31 +287,31 @@ func _signal_color(state: String) -> Color:
 
 func _draw_person(agent: Dictionary, position: Vector2) -> void:
 	var phase := float(agent.phase)
-	var foot := 1.0 if int(phase * 8.0) % 4 == 1 else (-1.0 if int(phase * 8.0) % 4 == 3 else 0.0)
-	var skin: Color = agent.get("skin_tone", Color("#d6a177"))
-	var hair: Color = agent.get("hair", Color("#49382c"))
-	var shirt: Color = agent.get("shirt", Color("#537e9a"))
-	var trousers: Color = agent.get("trousers", Color("#3e535d"))
-	_agent_pixel(position, 3, 20, 10, 2, Color("#748667"))
-	_agent_pixel(position, 4, 15, 3, 5 + foot, trousers)
-	_agent_pixel(position, 9, 15, 3, 5 - foot, trousers)
-	_agent_pixel(position, 3, 20 + foot, 4, 2, Color("#34483f"))
-	_agent_pixel(position, 9, 20 - foot, 4, 2, Color("#34483f"))
-	_agent_pixel(position, 3, 9, 10, 8, shirt)
-	if bool(agent.get("skirt", false)):
-		_agent_pixel(position, 2, 15, 12, 3, shirt.darkened(0.15))
-	_agent_pixel(position, 1, 10 - foot, 3, 5, skin)
-	_agent_pixel(position, 13, 10 + foot, 2, 5, skin)
-	_agent_pixel(position, 4, 3, 9, 7, skin)
-	_agent_pixel(position, 3, 1, 10, 4, hair)
-	_agent_pixel(position, 5, 0, 7, 2, hair)
-	if bool(agent.get("long_hair", false)):
-		_agent_pixel(position, 3, 3, 2, 8, hair)
+	var artwork: Dictionary = ActorArt.sprite(str(agent.get("npc_asset", "npc_medium_man_adult")))
+	if not artwork.is_empty():
+		var lift := absf(sin(phase * 14.0)) * 1.0 if bool(agent.get("moving", false)) else 0.0
+		var lean := sin(phase * 14.0) * 0.035 if bool(agent.get("moving", false)) else 0.0
+		draw_circle(position, 4.0, Color(0.05, 0.10, 0.07, 0.20))
+		draw_set_transform(position + Vector2(0.0, -lift), lean, Vector2.ONE)
+		draw_texture_rect_region(artwork.texture, Rect2(-7.0, -25.0, 14.0, 25.0), artwork.region)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
+	draw_rect(Rect2(position + Vector2(-7.0, -25.0), Vector2(14.0, 25.0)), Color("#d34f6a"))
 
 
 func _draw_robot(agent: Dictionary, position: Vector2) -> void:
 	var phase := float(agent.phase)
 	var foot := 1.0 if int(phase * 8.0) % 4 == 1 else (-1.0 if int(phase * 8.0) % 4 == 3 else 0.0)
+	var artwork: Dictionary = ActorArt.sprite("npr")
+	if not artwork.is_empty():
+		var stride := sin(phase * 15.0) if bool(agent.get("moving", false)) else 0.0
+		draw_circle(position, 4.0, Color(0.05, 0.10, 0.07, 0.20))
+		draw_set_transform(position + Vector2(0.0, -absf(stride)), stride * 0.045, Vector2.ONE)
+		draw_texture_rect_region(artwork.texture, Rect2(-9.0, -25.0, 18.0, 25.0), artwork.region)
+		if int(elapsed * 4.0) % 2 == 0:
+			draw_circle(Vector2(0.0, -24.0), 1.0, Color("#ffda75"))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
 	_agent_pixel(position, 4, 17, 3, 4 + foot, Color("#244a4e"))
 	_agent_pixel(position, 9, 17, 3, 4 - foot, Color("#244a4e"))
 	_agent_pixel(position, 3, 20 + foot, 4, 2, Color("#65aeb0"))
@@ -313,6 +328,18 @@ func _draw_robot(agent: Dictionary, position: Vector2) -> void:
 
 
 func _draw_drone(agent: Dictionary, position: Vector2) -> void:
+	var artwork: Dictionary = ActorArt.sprite("npd")
+	if not artwork.is_empty():
+		var phase := float(agent.phase)
+		draw_circle(position + Vector2(4.0, 8.0), 7.0, Color(0.05, 0.08, 0.07, 0.22))
+		draw_set_transform(position + Vector2(0.0, sin(phase * 4.0) * 1.5), 0.0, Vector2.ONE)
+		draw_texture_rect_region(artwork.texture, Rect2(-14.0, -14.0, 28.0, 28.0), artwork.region)
+		for rotor in [Vector2(-10.0, -10.0), Vector2(10.0, -10.0), Vector2(-10.0, 10.0), Vector2(10.0, 10.0)]:
+			var rotor_angle := phase * 28.0
+			var blade := Vector2(2.5, 0.0).rotated(rotor_angle)
+			draw_line(rotor - blade, rotor + blade, Color("#8ee2e2"), 0.8)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
 	draw_circle(position + Vector2(3.0, 7.0), 7.0, Color(0.05, 0.08, 0.07, 0.22))
 	for offset in [Vector2(-7, -5), Vector2(7, -5), Vector2(-7, 5), Vector2(7, 5)]:
 		draw_circle(position + offset, 3.5, Color("#20383b"))
@@ -406,14 +433,15 @@ func _add_population(kind: String, count: int, cbd_percent: int, speed: float) -
 		if kind in ["person", "robot"]:
 			agent["walker_id"] = agents.size()
 		if kind == "person":
-			agent["skin_tone"] = _choose_skin_tone()
-			agent["hair"] = Color(["49382c", "242c2c", "775539", "a48550", "aaa797"][rng.randi_range(0, 4)])
-			agent["shirt"] = Color(["537e9a", "a95d52", "638253", "c4a067", "816b93", "c6c8ad", "477c77"][rng.randi_range(0, 6)])
-			agent["trousers"] = Color(["3e535d", "665d4c", "444d42"][rng.randi_range(0, 2)])
-			agent["long_hair"] = rng.randf() < 0.45
-			agent["skirt"] = rng.randf() < 0.2
+			# Even population sizes have an exact half-and-half split; an odd
+			# population differs by only one. Alternation also balances the CBD.
+			agent["gender"] = "woman" if index % 2 == 0 else "man"
+			agent["skin_tone_group"] = _choose_skin_tone_group()
+			agent["age_group"] = AGE_GROUPS[floori(index / 2.0) % AGE_GROUPS.size()]
+			agent["npc_asset"] = "npc_%s_%s_%s" % [agent.skin_tone_group, agent.gender, agent.age_group]
 		elif kind == "traffic":
-			agent["body_color"] = Color(["af5945", "4d7199", "bfc5b5", "69806b", "c4a067"][rng.randi_range(0, 4)])
+			agent["vehicle_asset"] = CAR_VARIANTS[index % CAR_VARIANTS.size()]
+			agent["vehicle_style"] = str(agent.vehicle_asset).split("_")[1]
 			agent["traffic_id"] = agents.size()
 			agent["reserved_node"] = -1
 			agent["waiting_seconds"] = 0.0
@@ -463,11 +491,11 @@ func _choose_next(agent: Dictionary, avoid_crossing: bool = false) -> void:
 	agent["crossing_wait_seconds"] = 0.0
 
 
-func _choose_skin_tone() -> Color:
+func _choose_skin_tone_group() -> String:
 	var roll := rng.randf_range(0.0, 100.0)
 	var cumulative := 0.0
 	for index in SKIN_TONE_KEYS.size():
 		cumulative += float(skin_tone_distribution.get(SKIN_TONE_KEYS[index], 0.0))
 		if roll <= cumulative:
-			return SKIN_TONE_COLORS[index]
-	return SKIN_TONE_COLORS[3]
+			return str(SKIN_TONE_KEYS[index]).trim_suffix("_percent")
+	return "medium"
