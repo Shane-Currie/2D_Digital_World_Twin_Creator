@@ -1,0 +1,6 @@
+.godot/
+*.tmp
+creator-studio-startup.log
+tools/tests/output/
+Thumbs.db
+.DS_Store

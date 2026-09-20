@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://2ddigitalworldtwincreator.local/schemas/game_settings.schema.json",
+  "title": "2D Digital World Twin Game Settings",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "population", "road_rules", "skin_tone_distribution", "driving", "traffic_recovery"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "population": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["traffic_car_count", "pedestrian_count", "cbd_car_percent", "cbd_pedestrian_percent", "robot_count", "cbd_robot_percent", "drone_count", "cbd_drone_percent"],
+      "properties": {
+        "traffic_car_count": { "type": "integer", "minimum": 0, "maximum": 1000, "default": 150 },
+        "pedestrian_count": { "type": "integer", "minimum": 0, "maximum": 2000, "default": 150 },
+        "cbd_car_percent": { "type": "integer", "minimum": 0, "maximum": 100, "default": 65 },
+        "cbd_pedestrian_percent": { "type": "integer", "minimum": 0, "maximum": 100, "default": 65 },
+        "robot_count": { "type": "integer", "minimum": 0, "maximum": 1000, "default": 20 },
+        "cbd_robot_percent": { "type": "integer", "minimum": 0, "maximum": 100, "default": 100 },
+        "drone_count": { "type": "integer", "minimum": 0, "maximum": 1000, "default": 10 },
+        "cbd_drone_percent": { "type": "integer", "minimum": 0, "maximum": 100, "default": 90 }
+      }
+    },
+    "road_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["driving_side"],
+      "properties": {
+        "driving_side": { "type": "string", "enum": ["left", "right"], "default": "left" }
+      }
+    },
+    "skin_tone_distribution": {
+      "type": "object",
+      "description": "Creator-selected visual skin tone distribution only. These values do not affect any other NPC setting.",
+      "additionalProperties": false,
+      "required": ["light_percent", "medium_percent", "dark_percent"],
+      "properties": {
+        "light_percent": { "$ref": "#/$defs/percentage" },
+        "medium_percent": { "$ref": "#/$defs/percentage" },
+        "dark_percent": { "$ref": "#/$defs/percentage" }
+      }
+    },
+    "camera": {
+      "type": "object",
+      "description": "Independent on-foot view. New and migrated towns default to 2x.",
+      "additionalProperties": false,
+      "required": ["character_zoom"],
+      "properties": {
+        "character_zoom": { "type": "number", "minimum": 0.2, "maximum": 3, "default": 2 }
+      }
+    },
+    "driving": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_speed_kmh", "forward_speed", "reverse_speed", "acceleration", "reverse_acceleration", "coast_deceleration", "brake_deceleration", "steering_rate", "camera_zoom_multiplier"],
+      "properties": {
+        "max_speed_kmh": { "type": "number", "minimum": 1, "maximum": 400, "default": 200, "description": "Creator-facing maximum speed. Runtime movement and the HUD use the same km/h value." },
+        "zero_to_hundred_seconds": { "type": "number", "minimum": 3, "maximum": 20, "default": 7.2, "description": "Seconds for the player's wagon to accelerate from 0 to 100 km/h in Drive, independent of town map scale." },
+        "reverse_max_speed_kmh": { "type": "number", "minimum": 5, "maximum": 40, "default": 20, "description": "Maximum selected cruise speed while reverse gear is engaged." },
+        "forward_speed": { "type": "number", "exclusiveMinimum": 0, "maximum": 400, "default": 108, "description": "Legacy internal-unit value retained for older projects. max_speed_kmh controls current forward speed." },
+        "reverse_speed": { "type": "number", "exclusiveMinimum": 0, "maximum": 200, "default": 36, "description": "Legacy internal-unit value retained for older towns; reverse_max_speed_kmh controls current reverse speed." },
+        "acceleration": { "type": "number", "exclusiveMinimum": 0, "maximum": 400, "default": 42, "description": "Legacy internal-unit setting retained for old town files; zero_to_hundred_seconds controls current forward acceleration." },
+        "reverse_acceleration": { "type": "number", "exclusiveMinimum": 0, "maximum": 400, "default": 70 },
+        "coast_deceleration": { "type": "number", "exclusiveMinimum": 0, "maximum": 400, "default": 30 },
+        "brake_deceleration": { "type": "number", "exclusiveMinimum": 0, "maximum": 800, "default": 140 },
+        "steering_rate": { "type": "number", "minimum": 0.1, "maximum": 8, "default": 1.9 },
+        "camera_zoom_multiplier": { "type": "number", "minimum": 0.2, "maximum": 3, "default": 1.5, "description": "Legacy key retained for old towns; an independent absolute in-car zoom in v1.2." }
+      }
+    },
+    "traffic_recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "jam_timeout_seconds", "recovery_spacing_seconds", "respawn_distance_pixels", "respawn_attempts"],
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "jam_timeout_seconds": { "type": "number", "minimum": 5, "maximum": 300, "default": 30 },
+        "recovery_spacing_seconds": { "type": "number", "minimum": 0.25, "maximum": 30, "default": 2 },
+        "respawn_distance_pixels": { "type": "number", "minimum": 100, "maximum": 10000, "default": 800 },
+        "respawn_attempts": { "type": "integer", "minimum": 1, "maximum": 200, "default": 24 }
+      }
+    }
+  },
+  "$defs": {
+    "percentage": { "type": "number", "minimum": 0, "maximum": 100 }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "rules": [
+    {"category":"wetland", "colour":"#759c91", "tags":{"natural":["wetland"],"landcover":["wetland"]}},
+    {"category":"wood", "colour":"#547f59", "tags":{"natural":["wood"],"landuse":["forest"],"landcover":["trees"]}},
+    {"category":"scrub", "colour":"#819866", "tags":{"natural":["scrub","heath"],"landcover":["scrub","shrubs"]}},
+    {"category":"sand", "colour":"#d6c494", "tags":{"natural":["sand"],"surface":["sand"],"landcover":["sand"]}},
+    {"category":"rock", "colour":"#aaa99b", "tags":{"natural":["bare_rock","scree","shingle"],"surface":["rock","gravel","pebblestone"]}},
+    {"category":"grass", "colour":"#9fbd78", "tags":{"landcover":["grass"],"natural":["grassland"],"landuse":["grass","meadow","village_green"],"surface":["grass"]}},
+    {"category":"paved", "colour":"#bab9ad", "tags":{"surface":["asphalt","concrete","paved","paving_stones","concrete:plates"],"amenity":["parking"]}},
+    {"category":"park", "colour":"#9bad80", "tags":{"leisure":["park","garden","recreation_ground"],"landuse":["recreation_ground"]}},
+    {"category":"farmland", "colour":"#b4ab75", "tags":{"landuse":["farmland","farmyard","orchard","vineyard","allotments"]}}
+  ]
+}

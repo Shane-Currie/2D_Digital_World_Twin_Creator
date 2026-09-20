@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "runtime_family": "2d_digital_world_twin",
+  "reference_game": "Generational Australian Survival v1.3",
+  "required_features": [
+    "walking_player",
+    "player_driven_wagon",
+    "npc_pedestrians",
+    "npc_traffic",
+    "traffic_signals_and_intersections",
+    "traffic_jam_recovery",
+    "cbd_population_targets",
+    "osm_roads_and_buildings",
+    "building_collisions",
+    "venues_and_interiors",
+    "property_boundaries",
+    "breakable_fences",
+    "camera_and_minimap",
+    "saveable_game_settings",
+    "not_playable_robots",
+    "non_playable_drones",
+    "aerial_navigation",
+    "grass_and_surface_tracks"
+  ],
+  "migration_status": "playable_preview_in_progress",
+  "ready_components": {
+    "building_collision_data": true,
+    "building_collision_streaming_loader": true,
+    "vehicle_pedestrian_aerial_route_data": true,
+    "generic_osm_visual_styling": true,
+    "v1_3_pixel_scale_and_hud": true,
+    "basic_generated_traffic_controls": true,
+    "zoomable_town_map": true,
+    "osm_street_names": true
+  },
+  "note": "OSM footprint collisions, route data and generic visual styling are generated deterministically without an LLM. v1.3 remains the verified complete gameplay reference while detailed traffic conflicts, venues/interiors, boundaries/fences and other remaining systems are moved into the town-independent runtime."
+}

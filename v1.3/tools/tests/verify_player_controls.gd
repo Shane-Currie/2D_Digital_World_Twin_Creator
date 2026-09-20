@@ -1,0 +1,76 @@
+extends SceneTree
+
+const PlayerScript = preload("res://scripts/runtime/runtime_player_character.gd")
+const VehicleScript = preload("res://scripts/runtime/runtime_player_vehicle.gd")
+const SettingsScript = preload("res://scripts/settings/game_settings_store.gd")
+
+
+func _initialize() -> void:
+	var player_source := FileAccess.get_file_as_string("res://scripts/runtime/runtime_player_character.gd")
+	assert(player_source.contains("KEY_W") and player_source.contains("KEY_A") and player_source.contains("KEY_S") and player_source.contains("KEY_D"), "The live player input is not connected to WASD.")
+	assert(not player_source.contains("KEY_UP") and not player_source.contains("KEY_DOWN"), "Arrow keys still control the walking player.")
+	assert(PlayerScript.direction_from_controls(true, false, false, false) == Vector2.UP, "W must walk north/up.")
+	assert(PlayerScript.direction_from_controls(false, true, false, false) == Vector2.DOWN, "S must walk south/down.")
+	assert(PlayerScript.direction_from_controls(false, false, true, false) == Vector2.LEFT, "A must walk left.")
+	assert(PlayerScript.direction_from_controls(false, false, false, true) == Vector2.RIGHT, "D must walk right.")
+	assert(PlayerScript.direction_from_controls(true, false, false, true) == Vector2.RIGHT, "Four-way WASD movement must retain horizontal priority.")
+	assert(not player_source.contains("world_direction_for_controls") and not player_source.contains("route_guidance"), "Walking still has experimental camera-relative controls or route steering.")
+
+	var settings := SettingsScript.recommended_settings()
+	assert(is_equal_approx(float(settings.driving.max_speed_kmh), 200.0), "The recommended maximum speed is not 200 km/h.")
+	assert(SettingsScript.validate(settings).passed, "Recommended control settings did not validate.")
+	var vehicle = VehicleScript.new()
+	vehicle.configure(settings.driving, 2.0)
+	assert(is_equal_approx(vehicle.forward_speed, 200.0 / 3.6 * 2.0), "The km/h to map-speed conversion is inconsistent.")
+	assert(is_equal_approx(vehicle.cruise_step_kmh, 1.0), "Cruise selection must use 1 km/h steps.")
+	vehicle.adjust_cruise_target(vehicle.cruise_step_kmh)
+	assert(is_equal_approx(vehicle.target_speed_kmh, 1.0), "Up Arrow did not raise the selected cruise speed by 1 km/h.")
+	vehicle.speed = 0.0
+	vehicle.set_cruise_target(200.0)
+	for _frame in roundi(float(settings.driving.zero_to_hundred_seconds) * 60.0):
+		vehicle.update_speed_toward_cruise(false, 1.0 / 60.0)
+	assert(absf(vehicle.speed_kmh() - 100.0) < 0.5, "The wagon did not reach 100 km/h in its selected 0–100 time.")
+	vehicle.configure(settings.driving, 8.0)
+	vehicle.speed = 0.0
+	vehicle.set_cruise_target(200.0)
+	for _frame in roundi(float(settings.driving.zero_to_hundred_seconds) * 60.0):
+		vehicle.update_speed_toward_cruise(false, 1.0 / 60.0)
+	assert(absf(vehicle.speed_kmh() - 100.0) < 0.5, "Changing map scale changed the 0–100 km/h time.")
+	vehicle.configure(settings.driving, 2.0)
+	vehicle.speed = 0.0
+	vehicle.set_cruise_target(1.0)
+	vehicle.adjust_cruise_target(500.0)
+	assert(is_equal_approx(vehicle.target_speed_kmh, 200.0), "Cruise speed exceeded the creator-selected maximum.")
+	vehicle.update_speed_toward_cruise(false, 20.0)
+	assert(is_equal_approx(vehicle.speed_kmh(), 200.0), "The wagon did not reach and hold the selected 200 km/h cruise speed.")
+	vehicle.adjust_cruise_target(-vehicle.cruise_step_kmh)
+	assert(is_equal_approx(vehicle.target_speed_kmh, 199.0), "Down Arrow did not lower the selected cruise speed by 1 km/h.")
+	var before_braking: float = float(vehicle.speed)
+	vehicle.update_speed_toward_cruise(false, 0.25)
+	assert(vehicle.speed < before_braking and vehicle.speed >= 0.0, "The wagon did not decelerate toward its lower cruise target.")
+	vehicle.adjust_cruise_target(-500.0)
+	vehicle.update_speed_toward_cruise(false, 20.0)
+	assert(is_zero_approx(vehicle.speed) and is_zero_approx(vehicle.target_speed_kmh), "Cruise reduction selected reverse instead of stopping at zero.")
+	vehicle.speed = vehicle.forward_speed
+	vehicle.set_cruise_target(100.0)
+	vehicle.update_speed_toward_cruise(true, 20.0)
+	assert(is_zero_approx(vehicle.speed) and is_zero_approx(vehicle.target_speed_kmh), "Space did not cancel cruise and apply the emergency brake.")
+	settings.driving.max_speed_kmh = 235.0
+	vehicle.configure(settings.driving, 2.0)
+	vehicle.set_cruise_target(235.0)
+	vehicle.update_speed_toward_cruise(false, 20.0)
+	assert(is_equal_approx(vehicle.speed_kmh(), 235.0), "A creator-selected maximum did not use the HUD/physics conversion.")
+	assert(not vehicle.toggle_gear() and vehicle.gear == "D", "Shift changed gear while the wagon was moving.")
+	vehicle.speed = 0.0
+	assert(vehicle.toggle_gear() and vehicle.gear == "R" and is_zero_approx(vehicle.target_speed_kmh), "Shift failed to select Reverse safely.")
+	vehicle.adjust_cruise_target(500.0)
+	assert(is_equal_approx(vehicle.target_speed_kmh, 20.0), "Reverse cruise exceeded its separate 20 km/h default.")
+	vehicle.update_speed_toward_cruise(false, 20.0)
+	assert(vehicle.speed < 0.0 and is_equal_approx(vehicle.speed_kmh(), 20.0), "Reverse cruise did not drive backwards at its selected speed.")
+	vehicle.adjust_cruise_target(-500.0)
+	vehicle.update_speed_toward_cruise(false, 20.0)
+	assert(is_zero_approx(vehicle.speed) and vehicle.gear == "R", "Down Arrow should stop reverse cruise without switching gear.")
+	assert(vehicle.toggle_gear() and vehicle.gear == "D", "Shift failed to return to Drive after stopping.")
+	vehicle.free()
+	print("PLAYER CONTROLS PASSED: WASD, 1 km/h cruise steps, map-independent 7.2-second 0–100, safe Shift reverse and Space braking.")
+	quit(0)
