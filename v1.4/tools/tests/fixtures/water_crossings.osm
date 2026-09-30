@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6" generator="Creator Studio environmental test fixture">
+  <bounds minlat="-36.0100" minlon="146.0000" maxlat="-36.0000" maxlon="146.0100"/>
+  <node id="1" lat="-36.0080" lon="146.0040"/>
+  <node id="2" lat="-36.0080" lon="146.0060"/>
+  <node id="3" lat="-36.0020" lon="146.0060"/>
+  <node id="4" lat="-36.0020" lon="146.0040"/>
+  <node id="10" lat="-36.0030" lon="146.0010"/>
+  <node id="11" lat="-36.0030" lon="146.0090"/>
+  <node id="20" lat="-36.0050" lon="146.0010"/>
+  <node id="21" lat="-36.0050" lon="146.0090"/>
+  <node id="30" lat="-36.0070" lon="146.0010"/>
+  <node id="31" lat="-36.0070" lon="146.0090"/>
+  <node id="40" lat="-36.0095" lon="146.0010"/>
+  <node id="41" lat="-36.0095" lon="146.0020"/>
+  <node id="42" lat="-36.0085" lon="146.0020"/>
+  <node id="43" lat="-36.0085" lon="146.0010"/>
+  <way id="100">
+    <nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/>
+    <tag k="natural" v="water"/>
+    <tag k="water" v="lake"/>
+    <tag k="name" v="Fixture Lake"/>
+  </way>
+  <way id="200">
+    <nd ref="10"/><nd ref="11"/>
+    <tag k="highway" v="primary"/>
+    <tag k="bridge" v="yes"/>
+    <tag k="layer" v="1"/>
+    <tag k="name" v="Bridge Road"/>
+  </way>
+  <way id="300">
+    <nd ref="20"/><nd ref="21"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="tunnel" v="yes"/>
+    <tag k="layer" v="-1"/>
+    <tag k="name" v="Tunnel Road"/>
+  </way>
+  <way id="400">
+    <nd ref="30"/><nd ref="31"/>
+    <tag k="highway" v="residential"/>
+    <tag k="name" v="Unsafe Water Road"/>
+  </way>
+  <way id="500">
+    <nd ref="40"/><nd ref="41"/><nd ref="42"/><nd ref="43"/><nd ref="40"/>
+    <tag k="building" v="roof"/>
+  </way>
+  <relation id="900">
+    <member type="way" ref="999999" role="outer"/>
+    <tag k="type" v="multipolygon"/>
+    <tag k="natural" v="water"/>
+    <tag k="water" v="harbour"/>
+    <tag k="name" v="Incomplete Fixture Harbour"/>
+  </relation>
+</osm>

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OSM building and place information",
+  "type": "object",
+  "required": ["schema_version", "kind", "source_attribution", "information_scope", "places", "statistics"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "kind": { "const": "osm_building_place_information" },
+    "source_attribution": { "const": "© OpenStreetMap contributors" },
+    "information_scope": { "const": "osm_tags_on_selected_footprint" },
+    "places": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["feature_id", "name", "category", "has_specific_type", "details", "source_element", "source_reference", "source_attribution", "information_scope"],
+        "properties": {
+          "feature_id": { "type": "string" },
+          "name": { "type": "string" },
+          "category": { "type": "string" },
+          "category_source_tag": { "type": "string" },
+          "has_specific_type": { "type": "boolean" },
+          "address": { "type": "string" },
+          "operator": { "type": "string" },
+          "levels": { "type": "string" },
+          "opening_hours": { "type": "string" },
+          "wheelchair_access": { "type": "string" },
+          "details": { "type": "array", "items": { "type": "object" } },
+          "source_element": {
+            "type": "object",
+            "required": ["type", "id"],
+            "properties": { "type": { "type": "string" }, "id": { "type": "string" } }
+          },
+          "source_reference": { "type": "string" },
+          "source_attribution": { "const": "© OpenStreetMap contributors" },
+          "information_scope": { "const": "tags_on_this_footprint" }
+        }
+      }
+    },
+    "statistics": {
+      "type": "object",
+      "required": ["building_footprints", "named_buildings", "specifically_classified_buildings", "addressed_buildings"],
+      "properties": {
+        "building_footprints": { "type": "integer", "minimum": 0 },
+        "named_buildings": { "type": "integer", "minimum": 0 },
+        "specifically_classified_buildings": { "type": "integer", "minimum": 0 },
+        "addressed_buildings": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
