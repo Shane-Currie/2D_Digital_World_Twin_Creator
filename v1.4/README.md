@@ -21,6 +21,14 @@ Choose an OpenStreetMap `.osm` file, mark the CBD and a safe starting location o
 
 v1.4 includes directional actor presentation, map-derived population destinations, the first Advanced Map Editor and Building Creator tools, and playable footprint-shaped ground-floor interiors. The player and NPCs share one 7.5×13.75-world-unit draw box anchored exactly at their feet; player, NPC and NPR artwork is 25% larger than the preceding pass. This changes presentation only, not routes, movement speed or collision logic. New towns use a 2.7× on-foot camera view and retain the independent 1.5× in-car default. Creators can correct selected OSM mistakes, import footprint-clipped exterior artwork, place a validated door/green entry arrow, and create/save/enter footprint-shaped interiors without editing source OSM or Godot code. See [directional actor animation](docs/directional_actor_animation.md), [population destinations](docs/population_destinations.md), [Advanced Map Editor](docs/advanced_map_editor.md), [Building Creator](docs/building_creator.md) and [Interior Designer](docs/interior_designer.md).
 
+## Local LLM conversations for NPCs and robots
+
+Version 1.4 integrates with **Ollama** so a creator can use an installed local language model for typed conversations with NPCs and NPR robots. In **NPCs and personas**, the creator selects an installed Ollama model, edits the random human and robot persona pools, and can place named storyline NPCs with a chosen custom persona outdoors or on a specific interior floor. During a play test, press **T** near an NPC or NPR, type a message and receive a short in-character reply in a speech bubble above that character.
+
+The game loads the persona library, town identity, optional cached Wikipedia town summary and optional creator-supplied town text during the map startup screen, then warms the selected model before play to reduce the first-conversation delay. Ollama must already be installed, running and contain the selected model. If it is unavailable, the player can retry or continue playing without conversations.
+
+The LLM connection is local-only at `http://127.0.0.1:11434`. It produces dialogue text only: it cannot control characters, change inventory, modify saves or alter town data. Town generation, OSM interpretation, collision and pathfinding do not use an LLM. See [local Ollama persona conversations](docs/basic_conversations.md) for setup, custom personas, storyline NPCs, town knowledge and current limitations.
+
 
 ## Starting Creator Studio
 

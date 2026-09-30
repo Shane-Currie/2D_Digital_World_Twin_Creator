@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-01 — GitHub README local-LLM documentation
+
+- Expanded the v1.4 README near its overview with a dedicated explanation of the Ollama integration for NPC and NPR conversations, creator-managed persona pools, custom storyline personas, startup model warm-up and optional town knowledge.
+- Clarified that Ollama must be installed and running with the selected model, that play can continue without conversations when it is unavailable, and that the localhost model produces dialogue text only. Deterministic town generation, OSM interpretation, collision and pathfinding remain independent of any LLM.
+- Documentation-only correction; no v1.4 gameplay or data format changed.
+
 ## 2026-09-30 — v1.4 completed release
 
 - Version 1.4 is now the completed, preserved release. Development continues separately in `../v1.5`; do not make later feature work directly in this v1.4 checkpoint.
