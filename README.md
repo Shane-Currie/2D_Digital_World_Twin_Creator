@@ -8,9 +8,12 @@ This repository preserves completed releases in separate version folders:
 | [`v1.2`](v1.2/) | Completed release | Run `v1.2/Start Creator Studio.cmd` |
 | [`v1.3`](v1.3/) | Completed release | Run `v1.3/Start Creator Studio.cmd` |
 | [`v1.4`](v1.4/) | Completed release | Run `v1.4/Start Creator Studio.cmd` |
+| [`v1.5`](v1.5/) | Completed release | Run `v1.5/Start Creator Studio.cmd` |
 
 Creator Studio is a no-code Godot application that turns OpenStreetMap `.osm` files into editable, playable 2D town projects. Creators can import a map, select the CBD and safe starting location, choose local road rules and population settings, build collision and navigation data, and launch a play test.
 
 Each version is self-contained. Read the `README.md` and `CHANGELOG.md` inside that version folder for its exact features, instructions and limitations. A compatible Godot installation is currently required by the development launcher; it detects Godot or provides plain-language setup help.
 
-Active development continues locally in v1.5. It will be added as another version folder when that release is ready.
+v1.5 adds expanded interior editing, creator tool hubs, trader NPC inventories/purchases, interior generic NPC/NPR placement and venue-reference text for local Ollama conversations. The local LLM handles character dialogue only; deterministic game code validates and commits accepted trades. See [v1.5 instructions](v1.5/README.md) and [release changes](v1.5/CHANGELOG.md).
+
+Active development continues locally in v1.6, starting with building heights and roof/wall designs.

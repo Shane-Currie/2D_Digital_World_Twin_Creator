@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6" generator="Creator Studio test fixture">
+  <bounds minlat="-36.0100" minlon="146.0000" maxlat="-36.0000" maxlon="146.0100"/>
+  <node id="1" lat="-36.0060" lon="146.0030"/>
+  <node id="2" lat="-36.0060" lon="146.0050"/>
+  <node id="3" lat="-36.0040" lon="146.0050"/>
+  <node id="4" lat="-36.0040" lon="146.0030"/>
+  <node id="5" lat="-36.0080" lon="146.0010">
+    <tag k="highway" v="traffic_signals"/>
+  </node>
+  <node id="6" lat="-36.0020" lon="146.0090"/>
+  <way id="100">
+    <nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/>
+    <tag k="building" v="house"/>
+    <tag k="name" v="Fixture House"/>
+  </way>
+  <way id="200">
+    <nd ref="5"/><nd ref="6"/>
+    <tag k="highway" v="residential"/>
+    <tag k="name" v="Example Street"/>
+  </way>
+</osm>

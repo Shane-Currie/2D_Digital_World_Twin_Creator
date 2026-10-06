@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Creator-authored building exteriors",
+  "type": "object",
+  "required": ["schema_version", "kind", "buildings"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "kind": { "const": "creator_building_exteriors" },
+    "buildings": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["feature_id"],
+        "properties": {
+          "feature_id": { "type": "string" },
+          "custom_name": { "type": "string", "maxLength": 80, "pattern": "^[^\\r\\n]*$" },
+          "exterior": {
+            "type": "object",
+            "required": ["relative_path", "source_name", "width", "height", "display_mode"],
+            "properties": {
+              "relative_path": { "type": "string" },
+              "source_name": { "type": "string" },
+              "width": { "type": "integer", "minimum": 16, "maximum": 4096 },
+              "height": { "type": "integer", "minimum": 16, "maximum": 4096 },
+              "display_mode": { "const": "clip_to_footprint" },
+              "scale_percent": { "type": "number", "minimum": 50, "maximum": 300, "default": 100 },
+              "rotation_degrees": { "type": "number", "minimum": -180, "maximum": 180, "default": 0 },
+              "offset_x_percent": { "type": "number", "minimum": -100, "maximum": 100, "default": 0 },
+              "offset_y_percent": { "type": "number", "minimum": -100, "maximum": 100, "default": 0 }
+            }
+          },
+          "doors": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "object",
+              "required": ["id", "longitude", "latitude", "outside_longitude", "outside_latitude", "entry_arrow", "approach_verified_clear", "entrance_source"],
+              "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "longitude": { "type": "number" }, "latitude": { "type": "number" },
+                "outside_longitude": { "type": "number" }, "outside_latitude": { "type": "number" },
+                "entry_arrow": { "const": "outside_points_to_door" },
+                "approach_verified_clear": { "const": true },
+                "entrance_source": { "const": "creator_selected" },
+                "pedestrian_node_id": { "type": "integer" },
+                "route_link_distance_metres": { "type": "number", "minimum": 0, "maximum": 250 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

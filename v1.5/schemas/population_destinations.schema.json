@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OSM population destinations",
+  "type": "object",
+  "required": ["schema_version", "kind", "source_attribution", "destinations", "statistics", "assumptions"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "kind": { "const": "osm_population_destinations" },
+    "source_attribution": { "const": "© OpenStreetMap contributors" },
+    "destinations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "feature_id", "name", "category", "category_source_tag", "location", "pedestrian_node_id", "route_link_distance_metres", "source_attribution", "information_scope", "entrance_status"],
+        "properties": {
+          "id": { "type": "string" },
+          "feature_id": { "type": "string" },
+          "name": { "type": "string" },
+          "category": { "enum": ["residential", "education", "health", "retail", "office", "hospitality", "civic", "recreation", "industrial", "transport"] },
+          "category_source_tag": { "type": "string" },
+          "location": {
+            "type": "object",
+            "required": ["longitude", "latitude"],
+            "properties": { "longitude": { "type": "number" }, "latitude": { "type": "number" } }
+          },
+          "pedestrian_node_id": { "type": "integer" },
+          "route_link_distance_metres": { "type": "number", "minimum": 0, "maximum": 250 },
+          "source_attribution": { "const": "© OpenStreetMap contributors" },
+          "information_scope": { "const": "osm_tags_on_this_footprint" },
+          "entrance_status": { "const": "not_mapped_or_not_selected" }
+        }
+      }
+    },
+    "statistics": { "type": "object" },
+    "assumptions": { "type": "object" }
+  }
+}

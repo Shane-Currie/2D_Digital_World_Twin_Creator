@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Creator-imported interior floor textures",
+  "type": "object",
+  "required": ["schema_version", "kind", "items"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "kind": { "const": "creator_interior_floor_materials" },
+    "updated_utc": { "type": "string" },
+    "items": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "category", "fill", "catalog_source", "image_path"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^custom_floor_[a-z0-9_]+$" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "category": { "const": "My creations" },
+          "fill": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+          "catalog_source": { "const": "creator_imported" },
+          "image_path": { "type": "string", "pattern": "^assets/interiors/floors/[A-Za-z0-9_.-]+\\.(png|jpg|jpeg|webp)$" },
+          "original_file_name": { "type": "string" },
+          "imported_utc": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

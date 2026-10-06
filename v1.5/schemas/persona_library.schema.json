@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://2ddigitalworldtwincreator.local/schemas/persona_library.schema.json",
+  "title": "Town Persona Library",
+  "type": "object",
+  "required": ["schema_version", "kind", "provider", "personas"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "kind": { "const": "persona_library" },
+    "provider": {
+      "type": "object",
+      "required": ["id", "endpoint", "model", "temperature", "max_reply_tokens", "timeout_seconds"],
+      "properties": {
+        "id": { "const": "ollama" },
+        "endpoint": { "const": "http://127.0.0.1:11434" },
+        "model": { "type": "string", "minLength": 1 },
+        "temperature": { "type": "number", "minimum": 0, "maximum": 1.5 },
+        "max_reply_tokens": { "type": "integer", "minimum": 16, "maximum": 160 },
+        "timeout_seconds": { "type": "number", "minimum": 5, "maximum": 90 }
+      },
+      "additionalProperties": false
+    },
+    "personas": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "persona.schema.json" }
+    }
+  },
+  "additionalProperties": false
+}

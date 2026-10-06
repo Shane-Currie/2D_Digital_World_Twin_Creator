@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://2ddigitalworldtwincreator.local/schemas/persona.schema.json",
+  "title": "NPC Persona",
+  "type": "object",
+  "required": ["schema_version", "id", "name", "actor_kind", "background", "personality", "speaking_style", "greeting"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+    "name": { "type": "string", "minLength": 1 },
+    "actor_kind": { "enum": ["npc", "npr"] },
+    "background": { "type": "string" },
+    "personality": { "type": "string" },
+    "speaking_style": { "type": "string" },
+    "knowledge": { "type": "array", "items": { "type": "string" } },
+    "boundaries": { "type": "array", "items": { "type": "string" } },
+    "greeting": { "type": "string", "minLength": 1 },
+    "built_in": { "type": "boolean" },
+    "robotic": { "type": "boolean" },
+    "trader_only": { "type": "boolean", "description": "Legacy flag excludes specialist presets from random roaming pools; either placed human NPC category may explicitly select them." }
+  },
+  "additionalProperties": false
+}

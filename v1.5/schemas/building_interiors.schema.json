@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Creator-authored building interiors",
+  "type": "object",
+  "required": ["schema_version", "kind", "buildings"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "kind": { "const": "creator_building_interiors" },
+    "buildings": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["feature_id", "floors"],
+        "properties": {
+          "feature_id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string" },
+          "floors": {
+            "type": "array", "minItems": 1, "maxItems": 20,
+            "items": {
+              "type": "object",
+              "required": ["id", "name", "level", "layout_source", "survey_status", "width_metres", "height_metres", "grid_metres", "footprint_scale", "boundary_metres", "holes_metres", "rooms", "furniture", "entry_links"],
+              "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "name": { "type": "string" },
+                "level": { "type": "integer", "minimum": 0, "maximum": 19 },
+                "layout_source": { "enum": ["creator_blank_from_osm_footprint", "creator_copy_of_footprint_shape"] },
+                "survey_status": { "enum": ["not_surveyed", "creator_adjusted"] },
+                "width_metres": { "type": "number", "exclusiveMinimum": 0.25, "maximum": 2000 },
+                "height_metres": { "type": "number", "exclusiveMinimum": 0.25, "maximum": 2000 },
+                "grid_metres": { "type": "number", "exclusiveMinimum": 0 },
+                "footprint_scale": { "type": "number", "minimum": 1, "maximum": 3 },
+                "boundary_metres": { "$ref": "#/$defs/ring" },
+                "holes_metres": { "type": "array", "items": { "$ref": "#/$defs/ring" } },
+                "walls": {
+                  "type": "array", "maxItems": 500,
+                  "items": {
+                    "type": "object",
+                    "required": ["id", "start_x_metres", "start_y_metres", "end_x_metres", "end_y_metres", "thickness_metres", "doors"],
+                    "properties": {
+                      "id": { "type": "string", "minLength": 1 },
+                      "start_x_metres": { "type": "number" },
+                      "start_y_metres": { "type": "number" },
+                      "end_x_metres": { "type": "number" },
+                      "end_y_metres": { "type": "number" },
+                      "thickness_metres": { "type": "number", "minimum": 0.08, "maximum": 0.5 },
+                      "doors": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": ["id", "offset_metres", "width_metres"],
+                          "properties": {
+                            "id": { "type": "string", "minLength": 1 },
+                            "offset_metres": { "type": "number", "minimum": 0 },
+                            "width_metres": { "type": "number", "minimum": 0.7, "maximum": 3 },
+                            "locked": { "type": "boolean", "default": false }
+                          },
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "rooms": {
+                  "type": "array", "maxItems": 200,
+                  "items": {
+                    "type": "object",
+                    "required": ["id", "name", "label_x_metres", "label_y_metres"],
+                    "properties": {
+                      "id": { "type": "string", "minLength": 1 },
+                      "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+                      "label_x_metres": { "type": "number" },
+                      "label_y_metres": { "type": "number" }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "flooring": {
+                  "type": "object",
+                  "required": ["cell_size_metres", "cells"],
+                  "properties": {
+                    "cell_size_metres": { "type": "number", "minimum": 0.25, "maximum": 2 },
+                    "cells": {
+                      "type": "object",
+                      "maxProperties": 100000,
+                      "propertyNames": { "pattern": "^-?[0-9]+:-?[0-9]+$" },
+                      "additionalProperties": { "type": "string", "pattern": "^(floor_light_oak|floor_dark_walnut|floor_weathered_grey|custom_floor_[a-z0-9_]+)$" }
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "furniture": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["id", "catalog_id", "name", "x_metres", "y_metres", "width_metres", "depth_metres", "rotation_degrees", "collision", "fill", "outline"],
+                    "properties": {
+                      "id": { "type": "string", "minLength": 1 },
+                      "catalog_id": { "type": "string", "pattern": "^(dining_table|dining_chair|sofa|single_bed|wardrobe|kitchen_counter|bathroom_sink|toilet|office_desk|shop_shelf|bar_counter|bar_stool|custom_[a-z0-9_]+)$" },
+                      "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+                      "object_type": { "type": "string", "minLength": 1, "maxLength": 48 },
+                      "catalog_source": { "enum": ["built_in", "creator_imported"] },
+                      "image_path": { "type": "string", "pattern": "^assets/interiors/furniture/[A-Za-z0-9_.-]+\\.(png|jpg|jpeg|webp)$" },
+                      "x_metres": { "type": "number" },
+                      "y_metres": { "type": "number" },
+                      "width_metres": { "type": "number", "exclusiveMinimum": 0.1, "maximum": 20 },
+                      "depth_metres": { "type": "number", "exclusiveMinimum": 0.1, "maximum": 20 },
+                      "rotation_degrees": { "type": "number", "minimum": 0, "exclusiveMaximum": 360 },
+                      "collision": { "type": "boolean" },
+                      "fill": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+                      "outline": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "entry_links": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["id", "exterior_entrance_id", "floor_id", "spawn_x_metres", "spawn_y_metres", "placement_source"],
+                    "properties": {
+                      "id": { "type": "string", "minLength": 1 },
+                      "exterior_entrance_id": { "type": "string", "minLength": 1 },
+                      "floor_id": { "const": "ground_floor" },
+                      "spawn_x_metres": { "type": "number" },
+                      "spawn_y_metres": { "type": "number" },
+                      "placement_source": { "const": "creator_selected" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "point": { "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }], "minItems": 2, "maxItems": 2 },
+    "ring": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/point" } }
+  }
+}
