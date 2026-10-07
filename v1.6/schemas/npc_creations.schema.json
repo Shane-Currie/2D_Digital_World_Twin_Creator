@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Creator NPC artwork catalogue",
+  "type": "object",
+  "required": ["schema_version", "kind", "creations"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "kind": {"const": "npc_creations"},
+    "creations": {
+      "type": "array", "maxItems": 100,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "gender", "age_group", "skin_tone_group"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^(?!npc_)[a-z0-9_-]{1,80}$"},
+          "name": {"type": "string", "minLength": 1, "maxLength": 80, "pattern": "\\S"},
+          "gender": {"enum": ["man", "woman"]},
+          "age_group": {"enum": ["young", "adult", "older"]},
+          "skin_tone_group": {"enum": ["light", "medium", "dark"]},
+          "seat_anchor_y": {"type": "number", "minimum": 0.35, "maximum": 0.75, "default": 0.58},
+          "rig": {"$ref": "#/$defs/rig"},
+          "poses": {
+            "type": "object",
+            "properties": {"idle": {"$ref": "#/$defs/views"}, "walk": {"$ref": "#/$defs/views"}, "sit": {"$ref": "#/$defs/views"}},
+            "additionalProperties": false
+          }
+        },
+        "allOf": [{
+          "if": {"anyOf": [{"properties": {"id": {"const": "morpheus"}}}, {"required": ["rig"], "properties": {"rig": {"required": ["enabled"], "properties": {"enabled": {"const": true}}}}}]},
+          "else": {"required": ["poses"], "properties": {"poses": {"required": ["idle"], "properties": {"idle": {"required": ["front"], "properties": {"front": {"minItems": 1}}}}}}}
+        }]
+      }
+    }
+  },
+  "$defs": {
+    "rigPart": {
+      "type": "object", "required": ["image", "position", "size", "pivot", "rotation_degrees", "z_index", "flip_h"],
+      "properties": {
+        "image": {"type": "string", "anyOf": [{"const": ""}, {"pattern": "^assets/npcs/(?!.*\\.\\.)(?!.*\\\\).+\\.(?:[pP][nN][gG]|[wW][eE][bB][pP])$"}]},
+        "position": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number", "minimum": -200, "maximum": 200}},
+        "size": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number", "minimum": 1, "maximum": 120}},
+        "pivot": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number", "minimum": 0, "maximum": 1}},
+        "rotation_degrees": {"type": "number", "minimum": -180, "maximum": 180},
+        "region": {"type": "array", "minItems": 4, "maxItems": 4,
+          "prefixItems": [
+            {"type": "number", "minimum": 0, "maximum": 4096},
+            {"type": "number", "minimum": 0, "maximum": 4096},
+            {"type": "number", "minimum": 0.1, "maximum": 4096},
+            {"type": "number", "minimum": 0.1, "maximum": 4096}
+          ]},
+        "z_index": {"type": "integer", "minimum": 0, "maximum": 20}, "flip_h": {"type": "boolean"}
+      }
+    },
+    "rigView": {
+      "type": "object", "required": ["parts"], "properties": {"parts": {
+        "type": "object", "required": ["torso", "head", "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm", "left_thigh", "left_shin", "right_thigh", "right_shin"],
+        "propertyNames": {"enum": ["torso", "head", "left_upper_arm", "left_forearm", "right_upper_arm", "right_forearm", "left_thigh", "left_shin", "right_thigh", "right_shin"]},
+        "additionalProperties": {"$ref": "#/$defs/rigPart"}
+      }}
+    },
+    "rig": {
+      "type": "object", "required": ["version", "enabled", "walk_cycles_per_second", "stride_degrees", "views"],
+      "properties": {
+        "version": {"const": 1}, "enabled": {"type": "boolean"},
+        "walk_cycles_per_second": {"type": "number", "minimum": 0.5, "maximum": 3},
+        "stride_degrees": {"type": "number", "minimum": 0, "maximum": 40},
+        "views": {"type": "object", "properties": {"front": {"$ref": "#/$defs/rigView"}, "left": {"$ref": "#/$defs/rigView"}, "right": {"$ref": "#/$defs/rigView"}, "back": {"$ref": "#/$defs/rigView"}}, "additionalProperties": false}
+      },
+      "if": {"properties": {"enabled": {"const": true}}},
+      "then": {"properties": {"views": {"required": ["front"], "properties": {"front": {"properties": {"parts": {"additionalProperties": {"properties": {"image": {"minLength": 1}}}}}}}}}}
+    },
+    "frames": {"type": "array", "maxItems": 8, "items": {"type": "string", "pattern": "^assets/npcs/(?!.*\\.\\.)(?!.*\\\\).+\\.(?:[pP][nN][gG]|[wW][eE][bB][pP]|[jJ][pP][eE]?[gG])$"}},
+    "views": {
+      "type": "object",
+      "properties": {"front": {"$ref": "#/$defs/frames"}, "left": {"$ref": "#/$defs/frames"}, "right": {"$ref": "#/$defs/frames"}, "back": {"$ref": "#/$defs/frames"}},
+      "additionalProperties": false
+    }
+  },
+  "description": "Stable IDs must be unique. Creations require front standing artwork or an enabled ten-part Front skeleton. Morpheus may inherit the bundled atlas when present. Frame files: 20 MB/4096 pixels; body parts: 4 MB/1024 pixels, PNG/WebP. All imports undergo full Godot decoding. Rig positions are parent-relative; other incomplete views fall back to Front. Placement references retain matching human attributes."
+}

@@ -2,3 +2,5 @@
 .godot/
 **/.godot/
 **/creator-studio-startup.log
+# Retained local copy of version Git metadata; never publish an embedded repo.
+**/.release-local-git/

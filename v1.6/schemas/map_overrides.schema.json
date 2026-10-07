@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Creator-authored map overrides",
+  "type": "object",
+  "required": ["schema_version", "kind", "source_fingerprint", "hidden_feature_ids", "zones"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "kind": { "const": "creator_map_overrides" },
+    "source_fingerprint": { "type": "string" },
+    "hidden_feature_ids": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "custom_buildings": {
+      "type": "array", "maxItems": 1000,
+      "items": {
+        "type": "object", "required": ["id", "kind", "points", "tags"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^creator_building_[1-9][0-9]*$" },
+          "kind": { "const": "building" },
+          "points": { "type": "array", "minItems": 5, "maxItems": 5, "items": { "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }], "minItems": 2, "maxItems": 2 } },
+          "tags": { "type": "object" }
+        }
+      }
+    },
+    "zones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "mode", "points", "applies_to", "source"],
+        "properties": {
+          "id": { "type": "string" },
+          "mode": { "enum": ["blocked_water", "allowed_ground"] },
+          "points": {
+            "type": "array", "minItems": 4,
+            "items": { "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }], "minItems": 2, "maxItems": 2 }
+          },
+          "applies_to": { "const": ["player", "vehicle", "npc", "npr"] },
+          "source": { "const": "creator_authored" }
+        }
+      }
+    }
+  }
+}

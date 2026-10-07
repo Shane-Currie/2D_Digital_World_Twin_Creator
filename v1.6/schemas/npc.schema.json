@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://2ddigitalworldtwincreator.local/schemas/npc.schema.json",
+  "title": "Placed NPC",
+  "type": "object",
+  "required": ["schema_version", "id", "display_name", "persona_id", "location", "appearance", "behaviour"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+    "display_name": { "type": "string", "minLength": 1, "maxLength": 80, "pattern": "^[^\\r\\n]+$" },
+    "persona_id": { "type": "string" },
+    "npc_role": { "enum": ["storyline", "trader", "generic", "npr"], "description": "Separate placed-character category; absent in older placements until migration." },
+    "actor_kind": { "enum": ["npc", "npr"] },
+    "location": {
+      "type": "object",
+      "required": ["space"],
+      "properties": {
+        "space": { "enum": ["outdoors", "interior"] },
+        "town_id": { "type": "string" },
+        "building_id": { "type": "string" },
+        "floor_id": { "type": "string" },
+        "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+        "longitude": { "type": "number", "minimum": -180, "maximum": 180 },
+        "x_metres": { "type": "number" },
+        "y_metres": { "type": "number" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "space": { "const": "outdoors" } } },
+          "then": { "required": ["town_id", "latitude", "longitude"] }
+        },
+        {
+          "if": { "properties": { "space": { "const": "interior" } } },
+          "then": { "required": ["town_id", "building_id", "floor_id", "x_metres", "y_metres"] }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "appearance": {
+      "type": "object",
+      "required": ["mode", "seed", "gender", "age_group", "skin_tone_group", "npc_asset"],
+      "properties": {
+        "mode": { "enum": ["random_static_asset", "built_in", "custom_creation"] },
+        "animation_type": { "enum": ["static", "animated"], "default": "animated", "description": "Human NPCs always animate. Legacy static flags are migrated without replacing artwork, persona or location." },
+        "seed": { "type": "string" },
+        "gender": { "enum": ["man", "woman"] },
+        "age_group": { "enum": ["young", "adult", "older"] },
+        "skin_tone_group": { "enum": ["light", "medium", "dark"] },
+        "npc_asset": { "type": "string" },
+        "template_id": { "type": "string" },
+        "custom_artwork_path": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "behaviour": {
+      "type": "object",
+      "properties": { "stationary": { "type": "boolean" } },
+      "additionalProperties": false
+    },
+    "created_utc": { "type": "string" }
+  },
+  "additionalProperties": false
+}

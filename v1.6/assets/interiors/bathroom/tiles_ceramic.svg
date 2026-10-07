@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<rect width="256" height="256" fill="#a4aca7"/>
+<rect x="2" y="2" width="60" height="60" rx="2" fill="#e2e9e7"/>
+<path d="M5 58V5H58" fill="none" stroke="#faf9ef" stroke-opacity=".38"/>
+<rect x="66" y="2" width="60" height="60" rx="2" fill="#e7edea"/>
+<path d="M69 58V5H122" fill="none" stroke="#faf9ef" stroke-opacity=".38"/>
+<rect x="130" y="2" width="60" height="60" rx="2" fill="#dce5e2"/>
+<path d="M133 58V5H186" fill="none" stroke="#faf9ef" stroke-opacity=".38"/>
+<rect x="194" y="2" width="60" height="60" rx="2" fill="#edf1ee"/>
+<path d="M197 58V5H250" fill="none" stroke="#faf9ef" stroke-opacity=".38"/>
+<rect x="2" y="66" width="60" height="60" rx="2" fill="#edf1ee"/>
+<path d="M5 122V69H58" fill="none" stroke="#faf9ef" stroke-opacity=".38"/>
+<rect x="66" y="66" width="60" height="60" rx="2" fill="#e2e9e7"/>
+<path d="M69 122V69H122" fill="none" stroke="#faf9ef" stroke-opacity=".38"/>
+<rect x="130" y="66" width="60" height="60" rx="2" fill="#e7edea"/>
+<path d="M133 122V69H186" fill="none" stroke="#faf9ef" stroke-opacity=".38"/>
+<rect x="194" y="66" width="60" height="60" rx="2" fill="#dce5e2"/>
+<path d="M197 122V69H250" fill="none" stroke="#faf9ef" stroke-opacity=".38"/>
+<rect x="2" y="130" width="60" height="60" rx="2" fill="#dce5e2"/>
+<path d="M5 186V133H58" fill="none" stroke="#faf9ef" stroke-opacity=".38"/>
+<rect x="66" y="130" width="60" height="60" rx="2" fill="#edf1ee"/>
+<path d="M69 186V133H122" fill="none" stroke="#faf9ef" stroke-opacity=".38"/>
+<rect x="130" y="130" width="60" height="60" rx="2" fill="#e2e9e7"/>
+<path d="M133 186V133H186" fill="none" stroke="#faf9ef" stroke-opacity=".38"/>
+<rect x="194" y="130" width="60" height="60" rx="2" fill="#e7edea"/>
+<path d="M197 186V133H250" fill="none" stroke="#faf9ef" stroke-opacity=".38"/>
+<rect x="2" y="194" width="60" height="60" rx="2" fill="#e7edea"/>
+<path d="M5 250V197H58" fill="none" stroke="#faf9ef" stroke-opacity=".38"/>
+<rect x="66" y="194" width="60" height="60" rx="2" fill="#dce5e2"/>
+<path d="M69 250V197H122" fill="none" stroke="#faf9ef" stroke-opacity=".38"/>
+<rect x="130" y="194" width="60" height="60" rx="2" fill="#edf1ee"/>
+<path d="M133 250V197H186" fill="none" stroke="#faf9ef" stroke-opacity=".38"/>
+<rect x="194" y="194" width="60" height="60" rx="2" fill="#e2e9e7"/>
+<path d="M197 250V197H250" fill="none" stroke="#faf9ef" stroke-opacity=".38"/>
+</svg>
