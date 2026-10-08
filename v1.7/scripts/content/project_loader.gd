@@ -70,11 +70,33 @@ func load_project(town_directory: String) -> Dictionary:
 	# Older v1.1 packs did not retain OSM node identities in map_features.json.
 	# Re-reading their copied sources prevents bridges/tunnels from being joined
 	# merely because their coordinates cross.
+	var source_bounds: Dictionary = {}
 	if not source_files.is_empty() and (features.is_empty() or features[0].get("node_ids", []).is_empty() or not preserves_osm_node_tags):
 		var refreshed: Dictionary = OsmImporterScript.new().parse_files(source_files)
 		if refreshed.get("ok", false):
 			features = refreshed.features
 			import_statistics = refreshed.statistics
+			source_bounds = refreshed.bounds
+	# Older imports could save another town's metadata over this project's
+	# unchanged geometry. Do not frame Albury using Gold Coast coordinates.
+	# Recover in memory only; the creator explicitly saves any repaired setup.
+	var feature_bounds := _feature_bounds(features)
+	var saved_bounds: Dictionary = town.get("map_bounds", {})
+	var recovery_message := ""
+	if not feature_bounds.is_empty() and not _bounds_overlap(saved_bounds, feature_bounds):
+		if source_bounds.is_empty() and not source_files.is_empty():
+			var source_result: Dictionary = OsmImporterScript.new().parse_files(source_files)
+			if source_result.get("ok", false): source_bounds = source_result.bounds
+		var recovered_bounds := source_bounds if _bounds_overlap(source_bounds, feature_bounds) else feature_bounds
+		town["map_bounds"] = recovered_bounds.duplicate(true)
+		recovery_message = "Recovered the map view: saved map bounds did not match this project's geometry."
+		var cbd_bounds: Dictionary = town.get("cbd", {}).get("bounds", {})
+		if not _bounds_inside(recovered_bounds, cbd_bounds):
+			town["cbd"] = {"type": "bounding_box", "bounds": {}}
+		var saved_start: Dictionary = town.get("starting_location", {})
+		if not _location_inside(recovered_bounds, saved_start) or not _location_inside(recovered_bounds, saved_start.get("vehicle", {})):
+			town["starting_location"] = {}
+		recovery_message += " Check Town name, CBD area and Player start, then Save before Play test. Existing content and files have not been changed."
 	var runtime_profile: Dictionary = {}
 	var runtime_path := town_directory.path_join("runtime_profile.json")
 	if FileAccess.file_exists(runtime_path):
@@ -89,6 +111,7 @@ func load_project(town_directory: String) -> Dictionary:
 	return {
 		"ok": true,
 		"message": "Project loaded successfully.",
+		"recovery_message": recovery_message,
 		"town_directory": town_directory,
 		"town": town,
 		"source_files": source_files,
@@ -99,6 +122,7 @@ func load_project(town_directory: String) -> Dictionary:
 			"features": features,
 			"bounds": town.get("map_bounds", {}),
 			"statistics": import_statistics,
+			"recovery_message": recovery_message,
 			"warnings": []
 		},
 		"runtime_profile": runtime_profile,
@@ -108,7 +132,44 @@ func load_project(town_directory: String) -> Dictionary:
 	}
 
 
+func _feature_bounds(features: Array[Dictionary]) -> Dictionary:
+	var bounds := {"west": INF, "east": -INF, "south": INF, "north": -INF}
+	for feature in features:
+		for point: Vector2 in feature.get("points", []):
+			if not point.is_finite(): continue
+			bounds.west = minf(bounds.west, point.x)
+			bounds.east = maxf(bounds.east, point.x)
+			bounds.south = minf(bounds.south, point.y)
+			bounds.north = maxf(bounds.north, point.y)
+	return bounds if _valid_bounds(bounds) else {}
+
+
+func _valid_bounds(bounds: Dictionary) -> bool:
+	for key in ["west", "east", "south", "north"]:
+		if not bounds.has(key) or not is_finite(float(bounds[key])): return false
+	return float(bounds.west) < float(bounds.east) and float(bounds.south) < float(bounds.north)
+
+
+func _bounds_overlap(first: Dictionary, second: Dictionary) -> bool:
+	if not _valid_bounds(first) or not _valid_bounds(second): return false
+	return float(first.west) <= float(second.east) and float(first.east) >= float(second.west) and float(first.south) <= float(second.north) and float(first.north) >= float(second.south)
+
+
+func _bounds_inside(outer: Dictionary, inner: Dictionary) -> bool:
+	if not _valid_bounds(outer) or not _valid_bounds(inner): return false
+	return float(inner.west) >= float(outer.west) and float(inner.east) <= float(outer.east) and float(inner.south) >= float(outer.south) and float(inner.north) <= float(outer.north)
+
+
+func _location_inside(bounds: Dictionary, location: Dictionary) -> bool:
+	if not _valid_bounds(bounds) or not location.has("longitude") or not location.has("latitude"): return false
+	var longitude := float(location.longitude)
+	var latitude := float(location.latitude)
+	return is_finite(longitude) and is_finite(latitude) and longitude >= float(bounds.west) and longitude <= float(bounds.east) and latitude >= float(bounds.south) and latitude <= float(bounds.north)
+
+
 func resolve_project_directory(selected_directory: String) -> Dictionary:
+	if not DirAccess.dir_exists_absolute(selected_directory):
+		return {"ok": false, "message": "This project folder is no longer available. Choose an existing saved town folder."}
 	if FileAccess.file_exists(selected_directory.path_join("town.json")):
 		return {"ok": true, "town_directory": selected_directory}
 	var candidates: Array[String] = []

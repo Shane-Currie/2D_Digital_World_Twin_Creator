@@ -201,6 +201,8 @@ var project_dialog_action := "load"
 var play_test_button: Button
 var import_tools_navigation
 var pending_osm_files := PackedStringArray()
+var new_town_dialog: ConfirmationDialog
+var new_town_destination := ""
 var sidebar_navigation_buttons: Dictionary = {}
 var inventory_editor: Control
 var save_floppy_icon: Texture2D
@@ -399,7 +401,8 @@ func _build_shell() -> void:
 	var sidebar := VBoxContainer.new()
 	sidebar.add_theme_constant_override("separation", 9)
 	sidebar_margin.add_child(sidebar)
-	sidebar.add_child(_navigation_button("Home", _show_welcome_page))
+	# Home starts a fresh session; Import resumes the current town's setup.
+	sidebar.add_child(_navigation_button("Home", _request_new_town.bind("home"), false, false))
 	var import_navigation := _navigation_button("Import a town", _show_town_import_page, true)
 	sidebar_navigation_buttons["import"] = import_navigation
 	sidebar.add_child(import_navigation)
@@ -551,7 +554,7 @@ func _show_welcome_page() -> void:
 		"1 · Import",
 		"Choose ordinary .osm files and preview the roads and building footprints.",
 		"Import a town",
-		_show_town_import_page
+		_request_new_town.bind("import")
 	))
 	cards.add_child(_feature_card(
 		"2 · Continue",
@@ -578,11 +581,113 @@ func _show_play_test_page() -> void:
 	content_area.add_child(_action_button("Back to town setup", _show_town_import_page, false))
 
 
+func _request_new_town(destination: String) -> void:
+	var has_current_town := not loaded_project_directory.is_empty() or not last_created_directory.is_empty() or not imported_town.is_empty() or not pending_osm_files.is_empty() or not current_town_name.is_empty() or not selected_osm_files.is_empty()
+	if not has_current_town:
+		_start_new_town(destination)
+		return
+	new_town_destination = destination
+	if not is_instance_valid(new_town_dialog):
+		new_town_dialog = ConfirmationDialog.new()
+		new_town_dialog.title = "Start a new town?"
+		new_town_dialog.ok_button_text = "Start new town"
+		new_town_dialog.cancel_button_text = "Keep current project"
+		new_town_dialog.confirmed.connect(_confirm_new_town)
+		new_town_dialog.canceled.connect(func(): new_town_destination = "")
+		add_child(new_town_dialog)
+	var project_name := current_town_name if not current_town_name.is_empty() else "the current project"
+	new_town_dialog.dialog_text = "This will close %s and clear the current session, including unsaved edits.\n\nSaved project files will not be deleted or changed. You can reopen them with Open previous project.\n\nChoose Keep current project to return and save your work first." % project_name
+	new_town_dialog.popup_centered(Vector2i(560, 240))
+
+
+func _confirm_new_town() -> void:
+	var destination := new_town_destination
+	new_town_destination = ""
+	new_town_dialog.hide()
+	if destination in ["home", "import"]: _start_new_town(destination)
+
+
+func _start_new_town(destination: String) -> void:
+	# Cancel temporary editing gestures before dropping their original draft.
+	# Only in-memory state is cleared; no content pack or preference is written.
+	_clear_content()
+	loaded_project_directory = ""
+	last_created_directory = ""
+	current_town_name = ""
+	selected_osm_files = PackedStringArray()
+	original_osm_files = PackedStringArray()
+	pending_osm_files = PackedStringArray()
+	imported_town = {}
+	selected_cbd = {}
+	selected_start = {}
+	selected_driving_side = "left"
+	project_dialog_action = "load"
+	rebuild_in_progress = false
+	rebuild_source_note = ""
+	editor_overrides = {}
+	editor_undo_stack.clear()
+	editor_redo_stack.clear()
+	editor_selected_building_id = ""
+	building_exterior_data = {}
+	building_effective_features.clear()
+	building_selected_feature = {}
+	building_pending_door_index = -1
+	building_link_data = {}
+	building_link_dirty = false
+	building_link_ready = false
+	interior_data = {}
+	interior_custom_catalog_data = {}
+	interior_floor_material_data = {}
+	interior_exterior_data = {}
+	interior_eligible_features.clear()
+	interior_selected_feature = {}
+	interior_stair_floor_counts = {}
+	interior_connection_features.clear()
+	interior_connection_neighbours.clear()
+	interior_connection_cache.clear()
+	interior_npc_place_active = false
+	interior_storyline_ready = false
+	interior_trader_data = {"schema_version": 1, "traders": {}}
+	location_notes_data = {"schema_version": 1, "locations": {}}
+	location_note_texts = {}
+	location_notes_ready = false
+	persona_data = {}
+	persona_form_index = -1
+	persona_visible_indices.clear()
+	persona_actor_filter = "npc"
+	placed_npc_role = "storyline"
+	npc_role_drafts = {}
+	storyline_npc_data = {}
+	town_knowledge_data = {}
+	town_custom_text = ""
+	npc_creation_editor = null
+	npc_appearance_picker = null
+	inventory_editor = null
+	settings_town_edit = null
+	settings_controls.clear()
+	section_pending_navigation = Callable()
+	if is_instance_valid(section_leave_dialog): section_leave_dialog.hide()
+	# Keep the chosen save folder, but never the old town's save/play targets.
+	if destination == "home": _show_welcome_page()
+	else: _show_town_import_page()
+	_set_status("Current session cleared. Saved projects are unchanged; choose a new map or open a previous project.")
+
+
 func _show_town_import_page() -> void:
 	_clear_content()
 	content_area.add_child(_page_heading("Import a town", "Choose one setup tool at a time. Your map stays visible."))
+	var recovery_message := str(imported_town.get("recovery_message", ""))
+	if not recovery_message.is_empty():
+		var recovery_note := _label(recovery_message, 12, WARNING)
+		recovery_note.name = "ProjectRecoveryNotice"
+		recovery_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		content_area.add_child(recovery_note)
 	create_town_button = _add_top_save_bar("Save town project", _create_town_project)
 	create_town_button.text = "Create town project" if loaded_project_directory.is_empty() else "Save project changes"
+	var new_town_button := _action_button("New town", _request_new_town.bind("import"), false)
+	new_town_button.name = "NewTownButton"
+	new_town_button.tooltip_text = "Start a separate town; confirmation protects the current session. Saved files are unchanged."
+	create_town_button.get_parent().add_child(new_town_button)
 
 	var split := HSplitContainer.new()
 	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -5106,6 +5211,9 @@ func _create_town_project() -> bool:
 	loaded_project_directory = result.town_directory
 	current_town_name = town_name
 	current_workspace = result.town_directory.get_base_dir()
+	imported_town.erase("recovery_message")
+	var recovery_note := content_area.find_child("ProjectRecoveryNotice", true, false)
+	if recovery_note != null: recovery_note.hide()
 	if is_instance_valid(open_folder_button): open_folder_button.disabled = false
 	play_test_button.disabled = false
 	if is_instance_valid(rebuild_project_button): rebuild_project_button.disabled = false
@@ -5273,7 +5381,8 @@ func _load_existing_project(path_value: String, destination_page: Variant = "loa
 		_show_building_creator_page()
 	else:
 		_show_town_import_page()
-	_set_status("Loaded %s. You can continue editing and save changes." % current_town_name)
+	var recovery_message := str(result.get("recovery_message", ""))
+	_set_status("Loaded %s. %s" % [current_town_name, recovery_message] if not recovery_message.is_empty() else "Loaded %s. You can continue editing and save changes." % current_town_name)
 
 
 func _play_current_project() -> void:
@@ -5298,6 +5407,9 @@ func _play_project(path_value: String) -> void:
 	var result: Dictionary = project_loader.load_project(path_value)
 	if not result.ok:
 		_show_message("Could not open project", result.message)
+		return
+	if not str(result.get("recovery_message", "")).is_empty():
+		_show_message("Check the recovered town setup", str(result.recovery_message) + " Use Open previous project to continue.")
 		return
 	_save_recent_project(result.town_directory)
 	var interiors := building_interior_store.load_from_town(result.town_directory)
@@ -5584,6 +5696,9 @@ func _option_id(option: OptionButton) -> String:
 
 func _current_placement_draft() -> Dictionary:
 	var draft := {"name": storyline_name_edit.text.strip_edges(), "coordinates": storyline_coordinate_edit.text.strip_edges(), "persona": _option_id(storyline_persona_option),"appearance":npc_appearance_picker.selected_appearance() if is_instance_valid(npc_appearance_picker) and placed_npc_role!="npr" else {}}
+	# Animated is mandatory, not a user-authored appearance. A blank human
+	# form and a blank robot form must both mean no placement draft.
+	if draft.appearance.size() == 1 and draft.appearance.get("animation_type", "") == "animated": draft.appearance = {}
 	if draft.name.is_empty() and draft.coordinates.is_empty() and draft.appearance.is_empty(): return {}
 	for npc in storyline_npc_data.get("npcs", []):
 		if str(npc.id) != _option_id(storyline_npc_option): continue
@@ -5701,6 +5816,7 @@ func _restore_section_snapshot(snapshot: Dictionary) -> bool:
 	return true
 
 func _save_active_section() -> void:
+	section_save_succeeded = false
 	_record_section_edit()
 	if section_save_callback.is_valid(): section_save_callback.call()
 
@@ -5736,6 +5852,10 @@ func _section_is_dirty() -> bool:
 			for key in ["forms", "persona_id", "npc_id", "trader_id", "offer_id", "item_id"]: value.erase(key)
 			if section_history_kind == "npcs":
 				for key in ["persona_actor_filter", "placed_npc_role", "npc_role_drafts"]: value.fields.erase(key)
+				# Artwork selections are already covered by a meaningful placement
+				# draft or changed creation data, not by which template is viewed.
+				value.erase("appearance_draft")
+				if value.has("creations"): value.creations.erase("id")
 	return now != saved
 
 func _refresh_section_save_state() -> void:
@@ -5757,22 +5877,34 @@ func _request_section_navigation(callback: Callable) -> void:
 		section_leave_dialog.cancel_button_text = "Stay"
 		section_leave_dialog.add_button("Discard", true, "discard")
 		section_leave_dialog.confirmed.connect(_save_before_leaving)
+		section_leave_dialog.canceled.connect(func(): section_pending_navigation = Callable())
 		section_leave_dialog.custom_action.connect(func(action):
 			if action == "discard": _discard_before_leaving())
 		add_child(section_leave_dialog)
 	section_leave_dialog.popup_centered(Vector2i(440, 180))
 
 func _save_before_leaving() -> void:
+	var destination := section_pending_navigation
+	# Save handlers can show their own success/error dialog. Never stack two
+	# exclusive windows or leave a success popup covering the destination.
+	section_leave_dialog.hide()
 	_save_active_section()
-	if not _section_is_dirty() and section_pending_navigation.is_valid(): section_pending_navigation.call()
-	else: _set_status("Save needs attention. Your edits are still open; correct the issue or choose Stay.")
+	if section_save_succeeded and not _section_is_dirty() and destination.is_valid():
+		section_pending_navigation = Callable()
+		message_dialog.hide()
+		destination.call()
+	else:
+		_set_status(status_label.text + " Your edits remain open; correct the save issue before leaving.")
+		if not message_dialog.visible: section_leave_dialog.popup_centered(Vector2i(440, 180))
 
 func _discard_before_leaving() -> void:
 	# Immediate imports keep their copied files. Restore only the references;
 	# do not delete source artwork/text or undo a generated map rebuild.
 	if not _restore_section_snapshot(section_saved_snapshot): return
 	section_leave_dialog.hide()
-	if section_pending_navigation.is_valid(): section_pending_navigation.call()
+	var destination := section_pending_navigation
+	section_pending_navigation = Callable()
+	if destination.is_valid(): destination.call()
 
 func _connect_editor_delete_actions() -> void:
 	if not is_instance_valid(top_delete_button) or top_delete_button.has_meta("connected"): return
@@ -5944,7 +6076,7 @@ func _refresh_sidebar_readiness() -> void:
 	_set_sidebar_completion("import", "Import a town", setup_ready)
 	_set_sidebar_completion("settings", "Game settings", settings_ready)
 	_set_sidebar_completion("system", "System setup", system_ready)
-	_set_sidebar_completion("play", "Play test project", runtime_ready)
+	_set_sidebar_completion("play", "Play test project", runtime_ready and str(imported_town.get("recovery_message", "")).is_empty())
 
 
 func _set_sidebar_completion(key: String, label_text: String, complete: bool) -> void:
@@ -6041,7 +6173,7 @@ func _settings_field(group_name: String, key: String, label_text: String, help_t
 	return row
 
 
-func _navigation_button(text_value: String, callback: Callable, highlighted := false) -> Button:
+func _navigation_button(text_value: String, callback: Callable, highlighted := false, guard_edits := true) -> Button:
 	var button := Button.new()
 	button.text = text_value
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -6049,7 +6181,8 @@ func _navigation_button(text_value: String, callback: Callable, highlighted := f
 	button.add_theme_font_size_override("font_size", 14)
 	button.add_theme_color_override("font_color", ACCENT if highlighted else TEXT)
 	if callback.is_valid():
-		button.pressed.connect(func(): _request_section_navigation(callback))
+		if guard_edits: button.pressed.connect(func(): _request_section_navigation(callback))
+		else: button.pressed.connect(callback)
 	return button
 
 

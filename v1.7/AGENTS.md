@@ -153,3 +153,26 @@
 ### 2026-10-08 — v1.7 completed by user
 
 - User confirms the import fix and completes v1.7, authorising this release's commit/push only. Release notes retain actual focused checks and the Gold Coast drone/export/performance limitations. Further development moves to v1.8; no pending gameplay feature is implemented by this release handoff.
+
+### 2026-10-08 — Saved Albury map opening corrected in v1.7
+
+- User explicitly returns to v1.7: Albury does not display after Open previous project. Scoped correction supersedes release preservation only for this bug; v1.8 and publication remain untouched. Found intact Albury geometry/source but Gold Coast bounds/name/CBD/start in town.json. Recover matching source/geometry bounds in memory, retain custom names/content and any valid local selections; flag unrelated setup for creator selection and explicit Save. Block Play until saved repair, with matching readiness indicator and inline notice.
+- Passed 38 rendered / 37 headless reopening, 83 exact Gold Coast new-import and 105 foundation checks. Actual Welcome/picker and Albury map/Advanced editor verified; two-size capture inspected, saved Pub label visible and every actual Albury file hash unchanged. Disposable Save/reopen/source-free/failed-open cases passed with final clean logs. No full gameplay/FPS/Ollama/export check, user-town write, subagent or push.
+- Lesson: successful JSON parsing is not proof a saved map will be visible. Check map bounds against geometry, actual opening callbacks and projected viewport positions; distinguish recoverable viewing metadata from unrecoverable overwritten CBD/start. Do not silently guess locations or rewrite a project on load. Details in CHANGELOG and tools/tests/verify_project_reopen.gd.
+
+### 2026-10-08 — Home / Import start a confirmed fresh session
+
+- User clarified intent: these actions should clear the current session to start a new town, with confirmation. One Start new town / Keep current project dialog replaces normal leave-section prompts for these two actions only. Cancel preserves unsaved edits; Confirm discards in-memory drafts/Undo/map selections and old save/play targets. Saved files and recent-project preference are untouched; chosen save folder retained. Internal project loading and Back to town setup still resume, not clear.
+- Passed 64 rendered / 63 headless combined reopening/session, 83 exact Gold Coast import and 105 foundation checks with clean final logs. Tested actual sidebar buttons, one dialog, cancel preservation, confirm destinations, fresh/new save targets, blocked old Play, reopen and saved-file hashes. No v1.8 changes, publication, deletion, agent or full-performance claim. Usage: docs/editor_usability.md; regression: tools/tests/verify_project_reopen.gd.
+
+### 2026-10-08 — Town setup resumes; saved navigation corrected
+
+- User revised Import semantics: sidebar resumes current town for name/start editing, superseding only its preceding fresh-session rule. Explicit New town in the Save header and Home still confirm clearing. User also requests all-menu navigation checks.
+- Corrected verified empty human/robot appearance-default false dirty comparisons and template-view selection noise. Save popup now requires new explicit success, closes competing success dialogs and continues to captured destination; Stay cancels destination, Discard restores/navigates, failure retains edits and feedback.
+- Passed 333 rendered / 333 headless all-menu checks (nine-menu cross-navigation at two sizes, every tool/Back, header/popup Save, name/start/persona edits, Stay/Discard/failed-save and success-window flows), 63 current-Albury/fresh-session, 83 Gold Coast import, 32 existing history/rollback and 105 foundation. Final logs clean, actual Albury hashes preserved, no user-town writes/v1.8 edit/agent/push. Not exhaustive network/upload/gameplay/performance testing. See CHANGELOG and tools/tests/verify_saved_navigation.gd.
+- Lesson: mandatory defaults and viewed stable IDs are not edits; preserve them for Undo but compare actual content. Reset save success per attempt, do not stack exclusive windows, and test real dialog buttons plus destination navigation. Live user fixtures can change between requests; do not assume an earlier corrupted setup remains corrupted.
+
+### 2026-10-08 — Corrected v1.7 completed; release update authorised
+
+- User accepts this corrected v1.7 as complete and explicitly authorises replacing its GitHub folder through a new release commit, preserving history and v1.1–v1.6. Next development is v1.8; carry the verified reopening/session/menu fixes forward without resetting divergent work or user towns.
+- Final focused verification is recorded above and in CHANGELOG.md. Publication verification is pending until the remote commit is checked; no additional gameplay/export result is implied.

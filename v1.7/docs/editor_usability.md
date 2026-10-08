@@ -57,6 +57,24 @@ The fixed top bar contains Undo, Cancel, Save and saved/unsaved status. Undo ret
 
 Undo is not an OS undo or a persistent version archive: it does not undo generated map rebuilds, restore source maps, delete uploads or cross into another section. Source and copied assets remain available. Imported town/location references restore their snapshot text/metadata safely; malformed or missing required files can prevent restoration with an explicit message.
 
+## Starting a new town in v1.7
+
+**Import a town** resumes the current town setup so you can edit its name,
+CBD and player/car starts. It does not clear a loaded project.
+Use **New town** in its Save header, or **Home**, to start a fresh session;
+these ask before closing the current project session.
+Choose **Keep current project** to cancel, or return and save unsaved work first.
+**Start new town** discards session edits and Undo history, not saved files.
+Home returns to Welcome; New town opens empty setup. The chosen save folder is
+retained, but the previous town's save/play targets are detached. Reopen saved
+work with **Open previous project**. **Back to town setup** within Play test
+resumes the current project without starting a new session.
+
+Leaving a genuinely edited section offers Save / Discard / Stay. A successful
+Save continues to the menu you selected; a failed Save keeps your edits open
+and explains the issue. Browsing NPC human/robot tools or viewing a different
+artwork template alone is not an unsaved content change.
+
 ## Review and focused evidence
 
 An explicitly authorized independent agent reviewed the editor sources. Applied recommendations included single-purpose tiles, bounded image thumbnails/full-height maps, removal of empty/duplicate actions, stable-ID selector restoration, safe draft history and unsaved-navigation/save/import protection. The user then ended the review and requested focus on corner handles; no background review is scheduled.
