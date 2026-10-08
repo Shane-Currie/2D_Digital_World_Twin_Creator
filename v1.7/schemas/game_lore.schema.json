@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Optional creator-authored fictional game lore",
+  "type": "object",
+  "required": ["schema_version", "lore"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "lore": {
+      "oneOf": [
+        {"type": "object", "maxProperties": 0},
+        {
+          "type": "object",
+          "required": ["relative_path", "sha256", "original_filename"],
+          "properties": {
+            "relative_path": {"type": "string", "pattern": "^data/game_lore/[0-9a-f]{64}\\.txt$"},
+            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "original_filename": {"type": "string"}
+          }
+        }
+      ]
+    }
+  },
+  "$comment": "The filename digest must equal sha256, and the copied non-empty UTF-8 file must be <=65536 bytes. Runtime additionally verifies its hash."
+}

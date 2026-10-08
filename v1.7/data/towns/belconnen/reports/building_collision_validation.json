@@ -1,0 +1,70 @@
+{
+	"collision_statistics": {
+		"collision_buildings": 1525.0,
+		"estimated_convex_pieces": 11320.0,
+		"skipped_invalid": 0.0,
+		"source_footprints": 1525.0
+	},
+	"courtyard_review": {
+		"courtyard_collision_hits": 0,
+		"inner_rings": 1,
+		"osm_id": "relation:165900"
+	},
+	"elapsed_milliseconds": 2214,
+	"generated_town": "C:/Users/shane/OneDrive/Desktop/Video Game Development/Generational Australian Survival/2D Digital World Twin Creator/v1.1/../test/belconnen_collision_test",
+	"open_start_collision_hits": 0,
+	"osm_statistics": {
+		"buildings": 1525,
+		"osm_nodes": 50795,
+		"osm_relations": 355,
+		"osm_ways": 7613,
+		"roads": 3743,
+		"source_files": 1
+	},
+	"passed": true,
+	"projection": {
+		"latitude_metres_per_degree": 110540.0,
+		"longitude_metres_per_degree": 90927.5519523732,
+		"method": "local_equirectangular_metres",
+		"origin_latitude": -35.233039855957,
+		"origin_longitude": 149.072799682617,
+		"y_axis": "south"
+	},
+	"review_building": {
+		"area_square_metres": 2576.57334417105,
+		"inside_collision_hits": 1,
+		"osm_id": "297173255",
+		"vertices": 20
+	},
+	"source": {
+		"api_bbox": [
+			149.055,
+			-35.245,
+			149.09,
+			-35.225
+		],
+		"attribution": "© OpenStreetMap contributors, ODbL 1.0",
+		"copyright_url": "https://www.openstreetmap.org/copyright",
+		"description": "Bounded Belconnen Town Centre and University of Canberra collision test; not the whole ACT district.",
+		"file": "data/towns/belconnen/source_osm/belconnen_university_town_centre.osm"
+	},
+	"starting_location": {
+		"clearance": {
+			"checked_against": "fixed_building_footprints",
+			"player_metres": 1.0,
+			"vehicle_metres": 4.0
+		},
+		"entrance_verified": false,
+		"label": "Cooper Lodge, University of Canberra",
+		"latitude": -35.2393112182617,
+		"longitude": 149.082550048828,
+		"osm_building_id": "297173255",
+		"placement": "exterior_near_telita_street",
+		"vehicle": {
+			"latitude": -35.2393913269043,
+			"longitude": 149.082550048828
+		}
+	},
+	"streamed_chunks_at_probe": 8,
+	"tested_utc": "2026-09-11T00:26:46"
+}

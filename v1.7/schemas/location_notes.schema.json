@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Creator location reference text",
+  "type": "object",
+  "required": ["schema_version", "locations"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "locations": {
+      "type": "object",
+      "maxProperties": 128,
+      "propertyNames": { "pattern": "^[a-zA-Z0-9_-]+$" },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["name", "relative_path", "original_filename"],
+        "properties": {
+          "name": { "type": "string" },
+          "relative_path": { "type": "string", "pattern": "^data/location_notes/[a-zA-Z0-9_-]+\\.txt$" },
+          "original_filename": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

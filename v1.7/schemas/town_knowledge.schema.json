@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Optional town knowledge",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "wikipedia", "custom_text"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "kind": { "const": "town_knowledge" },
+    "wikipedia": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "title", "canonical_url", "language", "summary", "retrieved_at", "attribution"],
+      "properties": {
+        "url": { "type": "string", "maxLength": 500 },
+        "title": { "type": "string", "maxLength": 500 },
+        "canonical_url": { "type": "string", "maxLength": 1000 },
+        "language": { "type": "string", "maxLength": 32 },
+        "summary": { "type": "string", "maxLength": 60000 },
+        "retrieved_at": { "type": "string", "maxLength": 64 },
+        "attribution": { "const": "Wikipedia contributors" }
+      }
+    },
+    "custom_text": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_path", "original_filename", "imported_at", "byte_size", "sha256"],
+      "properties": {
+        "relative_path": { "enum": ["", "data/town_knowledge/custom_town_information.txt"] },
+        "original_filename": { "type": "string", "maxLength": 260 },
+        "imported_at": { "type": "string", "maxLength": 64 },
+        "byte_size": { "type": "integer", "minimum": 0, "maximum": 262144 },
+        "sha256": { "type": "string", "pattern": "^$|^[a-fA-F0-9]{64}$" }
+      }
+    }
+  }
+}

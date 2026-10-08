@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Town environment artwork settings",
+  "type": "object",
+  "required": ["schema_version", "kind", "tree_style", "custom_trees"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "kind": {"const": "environment_settings"},
+    "tree_style": {"type": "string", "pattern": "^(mapped|broadleaf|eucalypt|conifer|custom_[a-f0-9]{64})$"},
+    "custom_trees": {
+      "type": "array", "maxItems": 32,
+      "items": {
+        "type": "object", "required": ["id", "name", "sha256", "relative_path"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^custom_[a-f0-9]{64}$"},
+          "name": {"type": "string", "minLength": 1, "maxLength": 80},
+          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "relative_path": {"type": "string", "pattern": "^assets/environment/trees/[a-f0-9]{64}\\.png$"}
+        }
+      }
+    }
+  },
+  "$comment": "Runtime/CLI additionally check unique IDs, selected ID membership and exact matching digest/path. Godot validates PNG decoding, transparency and non-empty artwork before importing."
+}
